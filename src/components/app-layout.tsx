@@ -182,20 +182,27 @@ function AppHeader() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  // Get sidebar state from cookie
-  const getInitialSidebarState = () => {
-    if (typeof window !== 'undefined') {
+  const [sidebarOpen, setSidebarOpen] = React.useState<boolean | undefined>(undefined);
+
+  React.useEffect(() => {
+    const getInitialSidebarState = () => {
       const savedState = document.cookie
         .split('; ')
         .find(row => row.startsWith('sidebar_state='))
         ?.split('=')[1];
-      return savedState === 'true';
-    }
-    return true; // Default to open
-  };
+      // Default to true (open) if no cookie is found
+      return savedState ? savedState === 'true' : true;
+    };
+    setSidebarOpen(getInitialSidebarState());
+  }, []);
+
+  // Render nothing or a loader until the sidebar state is determined
+  if (sidebarOpen === undefined) {
+    return null; 
+  }
 
   return (
-    <SidebarProvider defaultOpen={getInitialSidebarState()} collapsible="icon">
+    <SidebarProvider defaultOpen={sidebarOpen} collapsible="icon">
       <AppSidebar />
       <SidebarInset className="flex flex-col">
         <AppHeader />
