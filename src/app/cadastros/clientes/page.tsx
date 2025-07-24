@@ -361,14 +361,14 @@ export default function ClientesPage({ isModal = false, onSaveSuccess, onCancel 
           title: 'Sucesso!',
           description: 'Cliente atualizado com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: editingCliente.id!, label: data.nomeRazaoSocial });
+        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingCliente.id!, label: data.nomeRazaoSocial });
       } else {
         const docRef = await addDoc(collection(db, 'clientes'), data);
         toast({
           title: 'Sucesso!',
           description: 'Cliente cadastrado com sucesso.',
         });
-         if (onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.nomeRazaoSocial });
+         if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.nomeRazaoSocial });
       }
 
       if (!isModal) {
@@ -583,12 +583,12 @@ export default function ClientesPage({ isModal = false, onSaveSuccess, onCancel 
                   )}
                 />
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCancel}>
                     Cancelar
                   </Button>
                   <Button type="submit">
-                    {editingCliente ? 'Salvar Alterações' : 'Cadastrar Cliente'}
+                    {editingCliente ? 'Salvar Alterações' : 'Cadastrar'}
                   </Button>
                 </div>
               </form>
@@ -597,7 +597,7 @@ export default function ClientesPage({ isModal = false, onSaveSuccess, onCancel 
         </Card>
       )}
 
-      {!isModal && (
+      {!isModal && !isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativos</TabsTrigger>

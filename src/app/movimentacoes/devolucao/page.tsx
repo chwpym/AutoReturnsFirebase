@@ -99,10 +99,11 @@ export default function DevolucaoPage() {
 
   const handlePecaSearch = async (codigoPeca: string) => {
     setPecaNaoEncontrada(false);
+    setPecaBuscaError('');
+    form.setValue('pecaId', '');
+    form.setValue('pecaDescricao', '');
+    
     if (!codigoPeca) {
-      form.setValue('pecaId', '');
-      form.setValue('pecaDescricao', '');
-      setPecaBuscaError('');
       return;
     }
 
@@ -120,12 +121,11 @@ export default function DevolucaoPage() {
         const pecaData = pecaDoc.data() as Peca;
         form.setValue('pecaId', pecaDoc.id, { shouldValidate: true });
         form.setValue('pecaDescricao', pecaData.descricao);
-        setPecaBuscaError('');
         setPecaNaoEncontrada(false);
+        setPecaBuscaError('');
       } else {
-        form.setValue('pecaId', '', { shouldValidate: true });
         form.setValue('pecaDescricao', 'Peça não encontrada');
-        setPecaBuscaError('Nenhuma peça encontrada com este código.');
+        setPecaBuscaError('Peça não encontrada. Clique no + para cadastrar.');
         setPecaNaoEncontrada(true);
       }
     } catch (error) {
@@ -175,7 +175,16 @@ export default function DevolucaoPage() {
         title: 'Sucesso!',
         description: 'Devolução registrada com sucesso.',
       });
-      form.reset();
+      form.reset({
+        pecaId: '',
+        pecaCodigo: '',
+        pecaDescricao: '',
+        quantidade: 1,
+        clienteId: '',
+        mecanicoId: '',
+        requisicaoVenda: '',
+        observacao: '',
+      });
       setClienteKey(Date.now());
       setMecanicoKey(Date.now());
 
@@ -227,7 +236,7 @@ export default function DevolucaoPage() {
                           <FormControl>
                             <Input 
                               {...field} 
-                              placeholder="Digite o código"
+                              placeholder="Digite o código e saia do campo"
                               onBlur={(e) => {
                                   field.onBlur();
                                   handlePecaSearch(e.target.value);
@@ -247,12 +256,8 @@ export default function DevolucaoPage() {
                     }
                     title="Nova Peça"
                     description="Cadastre uma nova peça rapidamente."
-                    formComponent={(props: any) => 
-                        <PecasPage 
-                            {...props} 
-                            initialValues={{ codigoPeca: form.watch('pecaCodigo')}} 
-                        />
-                    }
+                    formComponent={PecasPage}
+                    formProps={{ initialValues: { codigoPeca: form.watch('pecaCodigo') } }}
                     onSaveSuccess={(newItem) => {
                         handlePecaSearch(form.watch('pecaCodigo'));
                     }}
@@ -261,7 +266,7 @@ export default function DevolucaoPage() {
                     <FormItem>
                       <FormLabel>Descrição da Peça</FormLabel>
                       <FormControl>
-                        <Input readOnly value={form.watch('pecaDescricao')} placeholder="Descrição será preenchida" />
+                        <Input readOnly {...form.register('pecaDescricao')} placeholder="Descrição será preenchida automaticamente" />
                       </FormControl>
                       {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
                     </FormItem>
@@ -452,7 +457,20 @@ export default function DevolucaoPage() {
               />
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => form.reset()}>
+                <Button type="button" variant="outline" onClick={() => {
+                  form.reset({
+                    pecaId: '',
+                    pecaCodigo: '',
+                    pecaDescricao: '',
+                    quantidade: 1,
+                    clienteId: '',
+                    mecanicoId: '',
+                    requisicaoVenda: '',
+                    observacao: '',
+                  });
+                   setClienteKey(Date.now());
+                   setMecanicoKey(Date.now());
+                }}>
                   Cancelar
                 </Button>
                 <Button type="submit">Registrar Devolução</Button>

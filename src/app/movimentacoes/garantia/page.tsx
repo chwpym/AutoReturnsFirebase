@@ -102,10 +102,11 @@ export default function GarantiaPage() {
 
    const handlePecaSearch = async (codigoPeca: string) => {
     setPecaNaoEncontrada(false);
+    setPecaBuscaError('');
+    form.setValue('pecaId', '');
+    form.setValue('pecaDescricao', '');
+    
     if (!codigoPeca) {
-      form.setValue('pecaId', '');
-      form.setValue('pecaDescricao', '');
-      setPecaBuscaError('');
       return;
     }
 
@@ -123,12 +124,11 @@ export default function GarantiaPage() {
         const pecaData = pecaDoc.data() as Peca;
         form.setValue('pecaId', pecaDoc.id, { shouldValidate: true });
         form.setValue('pecaDescricao', pecaData.descricao);
-        setPecaBuscaError('');
         setPecaNaoEncontrada(false);
+        setPecaBuscaError('');
       } else {
-        form.setValue('pecaId', '', { shouldValidate: true });
         form.setValue('pecaDescricao', 'Peça não encontrada');
-        setPecaBuscaError('Nenhuma peça encontrada com este código.');
+        setPecaBuscaError('Peça não encontrada. Clique no + para cadastrar.');
         setPecaNaoEncontrada(true);
       }
     } catch (error) {
@@ -178,7 +178,21 @@ export default function GarantiaPage() {
         title: 'Sucesso!',
         description: 'Solicitação de garantia registrada com sucesso.',
       });
-      form.reset();
+      form.reset({
+        pecaId: '',
+        pecaCodigo: '',
+        pecaDescricao: '',
+        quantidade: 1,
+        clienteId: '',
+        mecanicoId: '',
+        fornecedorId: '',
+        requisicaoVenda: '',
+        defeitoRelatado: '',
+        nfSaida: '',
+        nfCompra: '',
+        valorPeca: 0,
+        observacao: '',
+      });
       setClienteKey(Date.now());
       setMecanicoKey(Date.now());
       setFornecedorKey(Date.now());
@@ -230,7 +244,7 @@ export default function GarantiaPage() {
                           <FormControl>
                             <Input 
                               {...field} 
-                              placeholder="Digite o código"
+                              placeholder="Digite o código e saia do campo"
                               onBlur={(e) => {
                                   field.onBlur();
                                   handlePecaSearch(e.target.value);
@@ -250,12 +264,8 @@ export default function GarantiaPage() {
                     }
                     title="Nova Peça"
                     description="Cadastre uma nova peça rapidamente."
-                    formComponent={(props: any) => 
-                        <PecasPage 
-                            {...props} 
-                            initialValues={{ codigoPeca: form.watch('pecaCodigo')}} 
-                        />
-                    }
+                    formComponent={PecasPage}
+                    formProps={{ initialValues: { codigoPeca: form.watch('pecaCodigo') } }}
                     onSaveSuccess={(newItem) => {
                         handlePecaSearch(form.watch('pecaCodigo'));
                     }}
@@ -264,7 +274,7 @@ export default function GarantiaPage() {
                     <FormItem>
                       <FormLabel>Descrição da Peça</FormLabel>
                        <FormControl>
-                        <Input readOnly value={form.watch('pecaDescricao')} placeholder="Descrição será preenchida" />
+                        <Input readOnly {...form.register('pecaDescricao')} placeholder="Descrição será preenchida automaticamente" />
                       </FormControl>
                       {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
                     </FormItem>
@@ -522,7 +532,26 @@ export default function GarantiaPage() {
               />
 
               <div className="flex justify-end gap-2">
-                 <Button type="button" variant="outline" onClick={() => form.reset()}>
+                 <Button type="button" variant="outline" onClick={() => {
+                   form.reset({
+                      pecaId: '',
+                      pecaCodigo: '',
+                      pecaDescricao: '',
+                      quantidade: 1,
+                      clienteId: '',
+                      mecanicoId: '',
+                      fornecedorId: '',
+                      requisicaoVenda: '',
+                      defeitoRelatado: '',
+                      nfSaida: '',
+                      nfCompra: '',
+                      valorPeca: 0,
+                      observacao: '',
+                   });
+                   setClienteKey(Date.now());
+                   setMecanicoKey(Date.now());
+                   setFornecedorKey(Date.now());
+                 }}>
                   Cancelar
                 </Button>
                 <Button type="submit">Registrar Garantia</Button>

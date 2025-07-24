@@ -312,6 +312,14 @@ export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, in
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModal]);
+  
+  // Use initialValues to set form values when in modal
+  React.useEffect(() => {
+    if (isModal && initialValues) {
+      form.reset(initialValues);
+    }
+  }, [isModal, initialValues, form]);
+
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -335,14 +343,14 @@ export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, in
           title: 'Sucesso!',
           description: 'Peça atualizada com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: editingPeca.id!, label: data.descricao });
+        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingPeca.id!, label: data.descricao });
       } else {
         const docRef = await addDoc(collection(db, 'pecas'), data);
         toast({
           title: 'Sucesso!',
           description: 'Peça cadastrada com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.descricao });
+        if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.descricao });
       }
 
       if (!isModal) {
@@ -504,12 +512,12 @@ export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, in
                   )}
                 />
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCancel}>
                     Cancelar
                   </Button>
                   <Button type="submit">
-                    {editingPeca ? 'Salvar Alterações' : 'Cadastrar Peça'}
+                    {editingPeca ? 'Salvar Alterações' : 'Cadastrar'}
                   </Button>
                 </div>
               </form>
@@ -518,11 +526,11 @@ export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, in
         </Card>
       )}
 
-      {!isModal && (
+      {!isModal && !isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativas</TabsTrigger>
-                <TabsTrigger value="inativos">Inativas</TabsTrigger>
+                <TabsTrigger value="inativas">Inativas</TabsTrigger>
             </TabsList>
             <TabsContent value="ativos">
                 <Card>

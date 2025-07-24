@@ -338,14 +338,14 @@ export default function FornecedoresPage({ isModal = false, onSaveSuccess, onCan
           title: 'Sucesso!',
           description: 'Fornecedor atualizado com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: editingFornecedor.id!, label: data.razaoSocial });
+        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingFornecedor.id!, label: `${data.razaoSocial} - (${data.nomeFantasia})` });
       } else {
         const docRef = await addDoc(collection(db, 'fornecedores'), data);
         toast({
           title: 'Sucesso!',
           description: 'Fornecedor cadastrado com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.razaoSocial });
+        if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: `${data.razaoSocial} - (${data.nomeFantasia})` });
       }
       
       if (!isModal) {
@@ -522,12 +522,12 @@ export default function FornecedoresPage({ isModal = false, onSaveSuccess, onCan
                   )}
                 />
 
-                <div className="flex justify-end gap-2">
+                <div className="flex justify-end gap-2 pt-4">
                   <Button type="button" variant="outline" onClick={handleCancel}>
                     Cancelar
                   </Button>
                   <Button type="submit">
-                    {editingFornecedor ? 'Salvar Alterações' : 'Cadastrar Fornecedor'}
+                    {editingFornecedor ? 'Salvar Alterações' : 'Cadastrar'}
                   </Button>
                 </div>
               </form>
@@ -536,7 +536,7 @@ export default function FornecedoresPage({ isModal = false, onSaveSuccess, onCan
         </Card>
       )}
 
-      {!isModal && (
+      {!isModal && !isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativos</TabsTrigger>

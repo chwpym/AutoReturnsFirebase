@@ -18,6 +18,7 @@ interface QuickAddModalProps {
   description: string;
   formComponent: React.ElementType;
   onSaveSuccess: (newItem: ComboboxOption) => void;
+  formProps?: any; // To pass initial values, etc.
 }
 
 export function QuickAddModal({
@@ -26,6 +27,7 @@ export function QuickAddModal({
   description,
   formComponent: FormComponent,
   onSaveSuccess,
+  formProps = {},
 }: QuickAddModalProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
@@ -46,6 +48,7 @@ export function QuickAddModal({
             isModal={true} 
             onSaveSuccess={handleSaveSuccess}
             onCancel={() => setIsOpen(false)}
+            {...formProps}
         />
       </DialogContent>
     </Dialog>
