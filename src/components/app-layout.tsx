@@ -16,7 +16,8 @@ import {
   ShieldCheck, 
   Undo2, 
   Users, 
-  Wrench 
+  Wrench,
+  PanelLeft
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -33,6 +34,7 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   Avatar,
@@ -79,6 +81,7 @@ const menuItems = [
 
 function AppSidebar() {
   const pathname = usePathname()
+  const { state: sidebarState } = useSidebar()
 
   const isActive = (href: string) => {
     return pathname === href
@@ -106,7 +109,7 @@ function AppSidebar() {
                 {item.items?.map((subItem) => (
                   <SidebarMenuItem key={subItem.href}>
                     <Link href={subItem.href} className="w-full">
-                      <SidebarMenuButton isActive={isActive(subItem.href)} tooltip={subItem.label}>
+                      <SidebarMenuButton isActive={isActive(subItem.href)} tooltip={sidebarState === 'collapsed' ? subItem.label : undefined}>
                         <subItem.icon />
                         <span>{subItem.label}</span>
                       </SidebarMenuButton>
@@ -120,7 +123,7 @@ function AppSidebar() {
               <SidebarMenu>
                 <SidebarMenuItem>
                   <Link href={item.href || '#'} className="w-full">
-                    <SidebarMenuButton isActive={isActive(item.href || '#')} tooltip={item.label}>
+                    <SidebarMenuButton isActive={isActive(item.href || '#')} tooltip={sidebarState === 'collapsed' ? item.label : undefined}>
                       <item.icon />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
@@ -140,11 +143,11 @@ function AppSidebar() {
                 <AvatarImage src="https://placehold.co/40x40.png" alt="User" data-ai-hint="user avatar" />
                 <AvatarFallback>U</AvatarFallback>
               </Avatar>
-              <div className="flex flex-col items-start truncate">
+              <div className="flex flex-col items-start truncate group-data-[collapsible=icon]:hidden">
                 <span className="font-medium text-sm">Usuário</span>
                 <span className="text-xs text-muted-foreground">admin@email.com</span>
               </div>
-              <ChevronDown className="ml-auto h-4 w-4" />
+              <ChevronDown className="ml-auto h-4 w-4 group-data-[collapsible=icon]:hidden" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-56 mb-2" side="top" align="start">
@@ -169,7 +172,7 @@ function AppSidebar() {
 function AppHeader() {
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
-       <SidebarTrigger className="md:hidden" />
+       <SidebarTrigger />
        <div className="w-full flex-1">
         {/* Breadcrumb can go here */}
        </div>
@@ -179,12 +182,24 @@ function AppHeader() {
 }
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  // Get sidebar state from cookie
+  const getInitialSidebarState = () => {
+    if (typeof window !== 'undefined') {
+      const savedState = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('sidebar_state='))
+        ?.split('=')[1];
+      return savedState === 'true';
+    }
+    return true; // Default to open
+  };
+
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={getInitialSidebarState()} collapsible="icon">
       <AppSidebar />
       <SidebarInset className="flex flex-col">
         <AppHeader />
-        <main className="flex-1 p-4 lg:p-6 bg-background">
+        <main className="flex-1 p-4 lg:p-6 bg-background overflow-auto">
           {children}
         </main>
       </SidebarInset>

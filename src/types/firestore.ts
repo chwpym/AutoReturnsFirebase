@@ -3,22 +3,22 @@ import type { Timestamp } from 'firebase/firestore';
 export interface Cliente {
   id?: string;
   nomeRazaoSocial: string;
-  nomeFantasia: string;
+  nomeFantasia?: string;
   tipo: {
     cliente: boolean;
     mecanico: boolean;
   };
   status: 'Ativo' | 'Inativo';
-  observacao: string;
+  observacao?: string;
 }
 
 export interface Fornecedor {
   id?: string;
   razaoSocial: string;
-  nomeFantasia: string;
+  nomeFantasia?: string;
   cnpj: string;
   status: 'Ativo' | 'Inativo';
-  observacao: string;
+  observacao?: string;
 }
 
 export interface Peca {
@@ -26,7 +26,7 @@ export interface Peca {
   codigoPeca: string;
   descricao: string;
   status: 'Ativo' | 'Inativo';
-  observacao: string;
+  observacao?: string;
 }
 
 interface MovimentacaoBase {
