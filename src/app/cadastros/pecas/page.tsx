@@ -219,7 +219,8 @@ function PecaTable({
   )
 }
 
-export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, initialValues = {} }: PecasPageProps) {
+export default function PecasPage(props: PecasPageProps) {
+  const { isModal = false, onSaveSuccess, onCancel, initialValues = {} } = props;
   const { toast } = useToast();
   const [pecasAtivas, setPecasAtivas] = React.useState<Peca[]>([]);
   const [pecasInativas, setPecasInativas] = React.useState<Peca[]>([]);
@@ -572,7 +573,7 @@ export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, in
                     </CardFooter>
                 </Card>
             </TabsContent>
-            <TabsContent value="inativos">
+            <TabsContent value="inativas">
                 <Card>
                     <CardHeader>
                     <CardTitle>Peças Inativas</CardTitle>

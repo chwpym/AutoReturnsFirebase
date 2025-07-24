@@ -244,7 +244,8 @@ function ClienteTable({
   );
 }
 
-export default function ClientesPage({ isModal = false, onSaveSuccess, onCancel }: ClientePageProps) {
+export default function ClientesPage(props: ClientePageProps) {
+  const { isModal = false, onSaveSuccess, onCancel } = props;
   const { toast } = useToast();
   const [clientesAtivos, setClientesAtivos] = React.useState<Cliente[]>([]);
   const [clientesInativos, setClientesInativos] = React.useState<Cliente[]>([]);

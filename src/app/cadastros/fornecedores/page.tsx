@@ -222,7 +222,8 @@ function FornecedorTable({
 }
 
 
-export default function FornecedoresPage({ isModal = false, onSaveSuccess, onCancel }: FornecedorPageProps) {
+export default function FornecedoresPage(props: FornecedorPageProps) {
+  const { isModal = false, onSaveSuccess, onCancel } = props;
   const { toast } = useToast();
   const [fornecedoresAtivos, setFornecedoresAtivos] = React.useState<Fornecedor[]>([]);
   const [fornecedoresInativos, setFornecedoresInativos] = React.useState<Fornecedor[]>([]);
