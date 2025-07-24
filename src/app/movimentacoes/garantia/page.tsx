@@ -57,9 +57,10 @@ import { useToast } from '@/hooks/use-toast';
 import { SearchCombobox } from '@/components/search-combobox';
 import { Calendar } from '@/components/ui/calendar';
 import { QuickAddModal } from '@/components/quick-add-modal';
-import ClientesPage from '@/app/cadastros/clientes/page';
-import FornecedoresPage from '@/app/cadastros/fornecedores/page';
-import PecasPage from '@/app/cadastros/pecas/page';
+import { ClienteForm } from '@/app/cadastros/clientes/ClienteForm';
+import { FornecedorForm } from '@/app/cadastros/fornecedores/FornecedorForm';
+import { PecaForm } from '@/app/cadastros/pecas/PecaForm';
+
 
 const garantiaSchema = z.object({
   pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
@@ -82,7 +83,7 @@ const garantiaSchema = z.object({
 
 type GarantiaFormValues = z.infer<typeof garantiaSchema>;
 
-export default function GarantiaPage(props:any) {
+export default function GarantiaPage() {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
@@ -278,8 +279,9 @@ export default function GarantiaPage(props:any) {
                   }
                   title="Cadastrar Nova Peça"
                   description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
-                  formComponent={PecasPage}
+                  formComponent={PecaForm}
                   formProps={{
+                    isModal: true,
                     initialValues: { codigoPeca: form.watch('pecaCodigo') },
                   }}
                   onSaveSuccess={() => {
@@ -348,7 +350,8 @@ export default function GarantiaPage(props:any) {
                       }
                       title="Novo Cliente"
                       description="Cadastre um novo cliente ou mecânico rapidamente."
-                      formComponent={ClientesPage}
+                      formComponent={ClienteForm}
+                      formProps={{ isModal: true }}
                       onSaveSuccess={(newItem) => {
                         setClienteKey(Date.now());
                         form.setValue('clienteId', newItem.value, {
@@ -389,7 +392,8 @@ export default function GarantiaPage(props:any) {
                       }
                       title="Novo Mecânico"
                       description="Cadastre um novo cliente ou mecânico rapidamente."
-                      formComponent={ClientesPage}
+                      formComponent={ClienteForm}
+                      formProps={{ isModal: true }}
                       onSaveSuccess={(newItem) => {
                         setMecanicoKey(Date.now());
                         form.setValue('mecanicoId', newItem.value, {
@@ -432,7 +436,8 @@ export default function GarantiaPage(props:any) {
                     }
                     title="Novo Fornecedor"
                     description="Cadastre um novo fornecedor rapidamente."
-                    formComponent={FornecedoresPage}
+                    formComponent={FornecedorForm}
+                    formProps={{ isModal: true }}
                     onSaveSuccess={(newItem) => {
                       setFornecedorKey(Date.now());
                       form.setValue('fornecedorId', newItem.value, {
@@ -615,5 +620,3 @@ export default function GarantiaPage(props:any) {
     </div>
   );
 }
-
-    

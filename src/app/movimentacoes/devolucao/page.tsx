@@ -55,8 +55,8 @@ import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { SearchCombobox } from '@/components/search-combobox';
 import { QuickAddModal } from '@/components/quick-add-modal';
-import ClientesPage from '@/app/cadastros/clientes/page';
-import PecasPage from '@/app/cadastros/pecas/page';
+import { ClienteForm } from '@/app/cadastros/clientes/ClienteForm';
+import { PecaForm } from '@/app/cadastros/pecas/PecaForm';
 
 const devolucaoSchema = z.object({
   pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
@@ -75,7 +75,7 @@ const devolucaoSchema = z.object({
 
 type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 
-export default function DevolucaoPage(props:any) {
+export default function DevolucaoPage() {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
@@ -257,8 +257,9 @@ export default function DevolucaoPage(props:any) {
                   }
                   title="Cadastrar Nova Peça"
                   description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
-                  formComponent={PecasPage}
+                  formComponent={PecaForm}
                   formProps={{
+                    isModal: true,
                     initialValues: { codigoPeca: form.watch('pecaCodigo') },
                   }}
                   onSaveSuccess={() => {
@@ -328,7 +329,8 @@ export default function DevolucaoPage(props:any) {
                       }
                       title="Novo Cliente"
                       description="Cadastre um novo cliente ou mecânico rapidamente."
-                      formComponent={ClientesPage}
+                      formComponent={ClienteForm}
+                      formProps={{ isModal: true }}
                       onSaveSuccess={(newItem) => {
                         setClienteKey(Date.now());
                         form.setValue('clienteId', newItem.value, {
@@ -370,7 +372,8 @@ export default function DevolucaoPage(props:any) {
                       }
                       title="Novo Mecânico"
                       description="Cadastre um novo cliente ou mecânico rapidamente."
-                      formComponent={ClientesPage}
+                      formComponent={ClienteForm}
+                      formProps={{ isModal: true }}
                       onSaveSuccess={(newItem) => {
                         setMecanicoKey(Date.now());
                         form.setValue('mecanicoId', newItem.value, {
@@ -514,5 +517,3 @@ export default function DevolucaoPage(props:any) {
     </div>
   );
 }
-
-    

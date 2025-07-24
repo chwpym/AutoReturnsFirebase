@@ -36,6 +36,10 @@ export function QuickAddModal({
     setIsOpen(false);
   };
 
+  const handleCancel = () => {
+    setIsOpen(false);
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
@@ -45,10 +49,9 @@ export function QuickAddModal({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
         <FormComponent 
-            isModal={true} 
-            onSaveSuccess={handleSaveSuccess}
-            onCancel={() => setIsOpen(false)}
             {...formProps}
+            onSaveSuccess={handleSaveSuccess}
+            onCancel={handleCancel}
         />
       </DialogContent>
     </Dialog>

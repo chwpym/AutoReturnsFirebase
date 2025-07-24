@@ -4,7 +4,6 @@
 import * as React from 'react';
 import {
   collection,
-  addDoc,
   getDocs,
   doc,
   updateDoc,
@@ -22,9 +21,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Peca } from '@/types/firestore';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
   CardContent,
@@ -34,16 +30,6 @@ import {
   CardFooter
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -82,25 +68,10 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
+import { PecaForm } from './PecaForm';
 
-const pecaSchema = z.object({
-  codigoPeca: z.string().min(1, 'Código da Peça é obrigatório.'),
-  descricao: z.string().min(3, 'Descrição é obrigatória.'),
-  status: z.enum(['Ativo', 'Inativo']).default('Ativo'),
-  observacao: z.string().optional(),
-}).passthrough();
-
-type PecaFormValues = z.infer<typeof pecaSchema>;
 
 const ITEMS_PER_PAGE = 10;
-
-interface PecasPageProps {
-    isModal?: boolean;
-    onSaveSuccess?: (newItem: { value: string; label: string }) => void;
-    onCancel?: () => void;
-    initialValues?: Partial<PecaFormValues>;
-}
 
 function PecaTable({
   pecas,
@@ -219,13 +190,12 @@ function PecaTable({
   )
 }
 
-export default function PecasPage(props: PecasPageProps) {
-  const { isModal = false, onSaveSuccess, onCancel, initialValues = {} } = props;
+export default function PecasPage() {
   const { toast } = useToast();
   const [pecasAtivas, setPecasAtivas] = React.useState<Peca[]>([]);
   const [pecasInativas, setPecasInativas] = React.useState<Peca[]>([]);
   const [editingPeca, setEditingPeca] = React.useState<Peca | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(isModal);
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
 
   const [lastVisibleAtivo, setLastVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [firstVisibleAtivo, setFirstVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -236,17 +206,6 @@ export default function PecasPage(props: PecasPageProps) {
   const [firstVisibleInativo, setFirstVisibleInativo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [currentPageInativo, setCurrentPageInativo] = React.useState(1);
   const [totalPecasInativas, setTotalPecasInativas] = React.useState(0);
-
-  const form = useForm<PecaFormValues>({
-    resolver: zodResolver(pecaSchema),
-    defaultValues: {
-      codigoPeca: '',
-      descricao: '',
-      status: 'Ativo',
-      observacao: '',
-      ...initialValues,
-    },
-  });
 
   const fetchPecas = React.useCallback(async (
     status: 'Ativo' | 'Inativo',
@@ -307,20 +266,10 @@ export default function PecasPage(props: PecasPageProps) {
   }, [toast, lastVisibleAtivo, firstVisibleAtivo, lastVisibleInativo, firstVisibleInativo]);
 
   React.useEffect(() => {
-    if (!isModal) {
-        fetchPecas('Ativo', 'initial');
-        fetchPecas('Inativo', 'initial');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModal]);
+    fetchPecas('Ativo', 'initial');
+    fetchPecas('Inativo', 'initial');
+  }, [fetchPecas]);
   
-  // Use initialValues to set form values when in modal
-  React.useEffect(() => {
-    if (isModal && initialValues) {
-      form.reset(initialValues);
-    }
-  }, [isModal, initialValues, form]);
-
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -334,69 +283,30 @@ export default function PecasPage(props: PecasPageProps) {
     }
   };
 
-
-  const handleFormSubmit = async (data: PecaFormValues) => {
-    try {
-      if (editingPeca) {
-        const pecaDocRef = doc(db, 'pecas', editingPeca.id!);
-        await updateDoc(pecaDocRef, data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Peça atualizada com sucesso.',
-        });
-        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingPeca.id!, label: data.descricao });
-      } else {
-        const docRef = await addDoc(collection(db, 'pecas'), data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Peça cadastrada com sucesso.',
-        });
-        if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.descricao });
-      }
-
-      if (!isModal) {
-        form.reset();
-        setEditingPeca(null);
-        setIsFormOpen(false);
-        fetchPecas('Ativo', 'initial');
-        fetchPecas('Inativo', 'initial');
-      }
-    } catch (error) {
-      console.error('Error saving peca:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: 'Não foi possível salvar os dados da peça.',
-        variant: 'destructive',
-      });
-    }
+  const handleSaveSuccess = () => {
+    setIsFormOpen(false);
+    setEditingPeca(null);
+    fetchPecas('Ativo', 'initial');
+    fetchPecas('Inativo', 'initial');
+    setCurrentPageAtivo(1);
+    setCurrentPageInativo(1);
   };
+
 
   const handleEdit = (peca: Peca) => {
     setEditingPeca(peca);
-    form.reset(peca);
     setIsFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleNew = () => {
     setEditingPeca(null);
-    form.reset({
-      codigoPeca: '',
-      descricao: '',
-      status: 'Ativo',
-      observacao: '',
-    });
     setIsFormOpen(true);
   }
 
   const handleCancel = () => {
-    if (isModal && onCancel) {
-        onCancel();
-    } else {
-        setEditingPeca(null);
-        form.reset();
-        setIsFormOpen(false);
-    }
+    setEditingPeca(null);
+    setIsFormOpen(false);
   };
   
   const handleStatusChange = async (id: string, status: 'Ativo' | 'Inativo') => {
@@ -407,10 +317,7 @@ export default function PecasPage(props: PecasPageProps) {
         title: `Peça ${status === 'Ativo' ? 'Reativada' : 'Inativada'}`,
         description: `A peça foi movida para ${status === 'Ativo' ? 'ativos' : 'inativos'}.`,
       });
-      fetchPecas('Ativo', 'initial');
-      fetchPecas('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess();
     } catch (error) {
       console.error(`Error ${status === 'Ativo' ? 'reactivating' : 'inactivating'} peca:`, error);
       toast({
@@ -428,10 +335,7 @@ export default function PecasPage(props: PecasPageProps) {
         title: 'Peça Excluída',
         description: 'A peça foi permanentemente excluída.',
       });
-      fetchPecas('Ativo', 'initial');
-      fetchPecas('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess();
     } catch (error) {
       console.error('Error deleting peca:', error);
       toast({
@@ -443,8 +347,7 @@ export default function PecasPage(props: PecasPageProps) {
   };
 
   return (
-    <div className={cn(!isModal && "space-y-6")}>
-      {!isModal && (
+    <div className="space-y-6">
        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Cadastro de Peças</h1>
@@ -457,77 +360,24 @@ export default function PecasPage(props: PecasPageProps) {
             </Button>
         )}
       </div>
-      )}
 
       {isFormOpen && (
-        <Card className={cn(isModal && "border-0 shadow-none")}>
-          {!isModal && (
-            <CardHeader>
-                <CardTitle>{editingPeca ? 'Editar Peça' : 'Nova Peça'}</CardTitle>
-                <CardDescription>Preencha os dados da peça.</CardDescription>
-            </CardHeader>
-          )}
-          <CardContent className={cn(isModal && "p-0")}>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="codigoPeca"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Código da Peça</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: FRAS-LE123" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="descricao"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Descrição</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: Pastilha de Freio Dianteira" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="observacao"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observação</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Alguma observação sobre a peça..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={handleCancel}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingPeca ? 'Salvar Alterações' : 'Cadastrar'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+        <Card>
+          <CardHeader>
+              <CardTitle>{editingPeca ? 'Editar Peça' : 'Nova Peça'}</CardTitle>
+              <CardDescription>Preencha os dados da peça.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PecaForm
+                initialValues={editingPeca}
+                onSaveSuccess={handleSaveSuccess}
+                onCancel={handleCancel}
+            />
           </CardContent>
         </Card>
       )}
 
-      {!isModal && !isFormOpen && (
+      {!isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativas</TabsTrigger>
@@ -564,7 +414,7 @@ export default function PecasPage(props: PecasPageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Ativo', 'next')}
-                                disabled={currentPageAtivo === Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
+                                disabled={currentPageAtivo >= Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />
@@ -605,7 +455,7 @@ export default function PecasPage(props: PecasPageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Inativo', 'next')}
-                                disabled={currentPageInativo === Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
+                                disabled={currentPageInativo >= Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />

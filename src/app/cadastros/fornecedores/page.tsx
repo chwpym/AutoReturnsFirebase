@@ -4,7 +4,6 @@
 import * as React from 'react';
 import {
   collection,
-  addDoc,
   getDocs,
   doc,
   updateDoc,
@@ -22,9 +21,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Fornecedor } from '@/types/firestore';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
   CardContent,
@@ -34,16 +30,6 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -82,25 +68,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
-
-const fornecedorSchema = z.object({
-  razaoSocial: z.string().min(3, 'Razão Social é obrigatória.'),
-  nomeFantasia: z.string().optional(),
-  cnpj: z.string().min(14, 'CNPJ inválido').max(18, 'CNPJ inválido'),
-  status: z.enum(['Ativo', 'Inativo']).default('Ativo'),
-  observacao: z.string().optional(),
-}).passthrough();
-
-type FornecedorFormValues = z.infer<typeof fornecedorSchema>;
+import { FornecedorForm } from './FornecedorForm';
 
 const ITEMS_PER_PAGE = 10;
-
-interface FornecedorPageProps {
-    isModal?: boolean;
-    onSaveSuccess?: (newItem: { value: string; label: string }) => void;
-    onCancel?: () => void;
-}
 
 function FornecedorTable({
   fornecedores,
@@ -222,13 +192,12 @@ function FornecedorTable({
 }
 
 
-export default function FornecedoresPage(props: FornecedorPageProps) {
-  const { isModal = false, onSaveSuccess, onCancel } = props;
+export default function FornecedoresPage() {
   const { toast } = useToast();
   const [fornecedoresAtivos, setFornecedoresAtivos] = React.useState<Fornecedor[]>([]);
   const [fornecedoresInativos, setFornecedoresInativos] = React.useState<Fornecedor[]>([]);
   const [editingFornecedor, setEditingFornecedor] = React.useState<Fornecedor | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(isModal);
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
 
   const [lastVisibleAtivo, setLastVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [firstVisibleAtivo, setFirstVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -239,18 +208,6 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
   const [firstVisibleInativo, setFirstVisibleInativo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [currentPageInativo, setCurrentPageInativo] = React.useState(1);
   const [totalFornecedoresInativos, setTotalFornecedoresInativos] = React.useState(0);
-
-
-  const form = useForm<FornecedorFormValues>({
-    resolver: zodResolver(fornecedorSchema),
-    defaultValues: {
-      razaoSocial: '',
-      nomeFantasia: '',
-      cnpj: '',
-      status: 'Ativo',
-      observacao: '',
-    },
-  });
 
   const fetchFornecedores = React.useCallback(async (
     status: 'Ativo' | 'Inativo',
@@ -311,12 +268,9 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
   }, [toast, lastVisibleAtivo, firstVisibleAtivo, lastVisibleInativo, firstVisibleInativo]);
 
   React.useEffect(() => {
-    if (!isModal) {
-      fetchFornecedores('Ativo', 'initial');
-      fetchFornecedores('Inativo', 'initial');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModal]);
+    fetchFornecedores('Ativo', 'initial');
+    fetchFornecedores('Inativo', 'initial');
+  }, [fetchFornecedores]);
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -330,69 +284,29 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
     }
   };
 
-  const handleFormSubmit = async (data: FornecedorFormValues) => {
-    try {
-      if (editingFornecedor) {
-        const fornecedorDocRef = doc(db, 'fornecedores', editingFornecedor.id!);
-        await updateDoc(fornecedorDocRef, data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Fornecedor atualizado com sucesso.',
-        });
-        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingFornecedor.id!, label: `${data.razaoSocial} - (${data.nomeFantasia})` });
-      } else {
-        const docRef = await addDoc(collection(db, 'fornecedores'), data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Fornecedor cadastrado com sucesso.',
-        });
-        if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: `${data.razaoSocial} - (${data.nomeFantasia})` });
-      }
-      
-      if (!isModal) {
-        form.reset();
-        setEditingFornecedor(null);
-        setIsFormOpen(false);
-        fetchFornecedores('Ativo', 'initial');
-        fetchFornecedores('Inativo', 'initial');
-      }
-    } catch (error) {
-      console.error('Error saving fornecedor:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: 'Não foi possível salvar os dados do fornecedor.',
-        variant: 'destructive',
-      });
-    }
+  const handleSaveSuccess = () => {
+    setIsFormOpen(false);
+    setEditingFornecedor(null);
+    fetchFornecedores('Ativo', 'initial');
+    fetchFornecedores('Inativo', 'initial');
+    setCurrentPageAtivo(1);
+    setCurrentPageInativo(1);
   };
 
   const handleEdit = (fornecedor: Fornecedor) => {
     setEditingFornecedor(fornecedor);
-    form.reset(fornecedor);
     setIsFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const handleNew = () => {
     setEditingFornecedor(null);
-    form.reset({
-      razaoSocial: '',
-      nomeFantasia: '',
-      cnpj: '',
-      status: 'Ativo',
-      observacao: '',
-    });
     setIsFormOpen(true);
   }
 
   const handleCancel = () => {
-    if (isModal && onCancel) {
-        onCancel();
-    } else {
-        setEditingFornecedor(null);
-        form.reset();
-        setIsFormOpen(false);
-    }
+    setEditingFornecedor(null);
+    setIsFormOpen(false);
   };
   
   const handleStatusChange = async (id: string, status: 'Ativo' | 'Inativo') => {
@@ -403,10 +317,7 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
         title: `Fornecedor ${status === 'Ativo' ? 'Reativado' : 'Inativado'}`,
         description: `O fornecedor foi movido para ${status === 'Ativo' ? 'ativos' : 'inativos'}.`,
       });
-      fetchFornecedores('Ativo', 'initial');
-      fetchFornecedores('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess();
     } catch (error) {
       console.error(`Error ${status === 'Ativo' ? 'reactivating' : 'inactivating'} fornecedor:`, error);
       toast({
@@ -424,10 +335,7 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
         title: 'Fornecedor Excluído',
         description: 'O fornecedor foi permanentemente excluído.',
       });
-      fetchFornecedores('Ativo', 'initial');
-      fetchFornecedores('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess();
     } catch (error) {
       console.error('Error deleting fornecedor:', error);
       toast({
@@ -439,105 +347,37 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
   };
 
   return (
-    <div className={cn(!isModal && "space-y-6")}>
-      {!isModal && (
-        <div className="flex items-center justify-between">
-            <div>
-            <h1 className="text-3xl font-bold tracking-tight">Cadastro de Fornecedores</h1>
-            <p className="text-muted-foreground">Gerencie seus fornecedores.</p>
-            </div>
-            {!isFormOpen && (
-                <Button onClick={handleNew}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Novo Fornecedor
-                </Button>
-            )}
-        </div>
-      )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+          <div>
+          <h1 className="text-3xl font-bold tracking-tight">Cadastro de Fornecedores</h1>
+          <p className="text-muted-foreground">Gerencie seus fornecedores.</p>
+          </div>
+          {!isFormOpen && (
+              <Button onClick={handleNew}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Novo Fornecedor
+              </Button>
+          )}
+      </div>
 
       {isFormOpen && (
-        <Card className={cn(isModal && "border-0 shadow-none")}>
-          {!isModal && (
-            <CardHeader>
-                <CardTitle>{editingFornecedor ? 'Editar Fornecedor' : 'Novo Fornecedor'}</CardTitle>
-                <CardDescription>Preencha os dados do fornecedor.</CardDescription>
-            </CardHeader>
-          )}
-          <CardContent className={cn(isModal && "p-0")}>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="razaoSocial"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Razão Social</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: Fornecedor Peças LTDA" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="nomeFantasia"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome Fantasia (opcional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: Peças Rápidas" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="cnpj"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>CNPJ</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="00.000.000/0000-00" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="observacao"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observação</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Alguma observação sobre o fornecedor..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={handleCancel}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingFornecedor ? 'Salvar Alterações' : 'Cadastrar'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+        <Card>
+          <CardHeader>
+              <CardTitle>{editingFornecedor ? 'Editar Fornecedor' : 'Novo Fornecedor'}</CardTitle>
+              <CardDescription>Preencha os dados do fornecedor.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FornecedorForm 
+                initialValues={editingFornecedor}
+                onSaveSuccess={handleSaveSuccess}
+                onCancel={handleCancel}
+            />
           </CardContent>
         </Card>
       )}
 
-      {!isModal && !isFormOpen && (
+      {!isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativos</TabsTrigger>
@@ -574,7 +414,7 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Ativo', 'next')}
-                                disabled={currentPageAtivo === Math.ceil(totalFornecedoresAtivos / ITEMS_PER_PAGE)}
+                                disabled={currentPageAtivo >= Math.ceil(totalFornecedoresAtivos / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />
@@ -615,7 +455,7 @@ export default function FornecedoresPage(props: FornecedorPageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Inativo', 'next')}
-                                disabled={currentPageInativo === Math.ceil(totalFornecedoresInativos / ITEMS_PER_PAGE)}
+                                disabled={currentPageInativo >= Math.ceil(totalFornecedoresInativos / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />

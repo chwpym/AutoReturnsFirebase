@@ -4,7 +4,6 @@
 import * as React from 'react';
 import {
   collection,
-  addDoc,
   getDocs,
   doc,
   updateDoc,
@@ -22,9 +21,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Cliente } from '@/types/firestore';
-import { z } from 'zod';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
   CardContent,
@@ -34,17 +30,6 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -83,34 +68,9 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
-
-const clienteSchema = z
-  .object({
-    nomeRazaoSocial: z.string().min(3, 'Nome/Razão Social é obrigatório.'),
-    nomeFantasia: z.string().optional(),
-    tipo: z
-      .object({
-        cliente: z.boolean().default(false),
-        mecanico: z.boolean().default(false),
-      })
-      .refine((data) => data.cliente || data.mecanico, {
-        message: 'Selecione pelo menos um tipo.',
-      }),
-    status: z.enum(['Ativo', 'Inativo']).default('Ativo'),
-    observacao: z.string().optional(),
-  })
-  .passthrough();
-
-type ClienteFormValues = z.infer<typeof clienteSchema>;
+import { ClienteForm } from './ClienteForm';
 
 const ITEMS_PER_PAGE = 10;
-
-interface ClientePageProps {
-    isModal?: boolean;
-    onSaveSuccess?: (newItem: { value: string; label: string }) => void;
-    onCancel?: () => void;
-}
 
 function ClienteTable({
   clientes,
@@ -244,14 +204,13 @@ function ClienteTable({
   );
 }
 
-export default function ClientesPage(props: ClientePageProps) {
-  const { isModal = false, onSaveSuccess, onCancel } = props;
+export default function ClientesPage() {
   const { toast } = useToast();
   const [clientesAtivos, setClientesAtivos] = React.useState<Cliente[]>([]);
   const [clientesInativos, setClientesInativos] = React.useState<Cliente[]>([]);
   
   const [editingCliente, setEditingCliente] = React.useState<Cliente | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(isModal);
+  const [isFormOpen, setIsFormOpen] = React.useState(false);
   
   const [lastVisibleAtivo, setLastVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [firstVisibleAtivo, setFirstVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -262,17 +221,6 @@ export default function ClientesPage(props: ClientePageProps) {
   const [firstVisibleInativo, setFirstVisibleInativo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [currentPageInativo, setCurrentPageInativo] = React.useState(1);
   const [totalClientesInativos, setTotalClientesInativos] = React.useState(0);
-
-  const form = useForm<ClienteFormValues>({
-    resolver: zodResolver(clienteSchema),
-    defaultValues: {
-      nomeRazaoSocial: '',
-      nomeFantasia: '',
-      tipo: { cliente: true, mecanico: false },
-      status: 'Ativo',
-      observacao: '',
-    },
-  });
 
   const fetchClientes = React.useCallback(async (
     status: 'Ativo' | 'Inativo', 
@@ -333,12 +281,9 @@ export default function ClientesPage(props: ClientePageProps) {
   }, [toast, lastVisibleAtivo, firstVisibleAtivo, lastVisibleInativo, firstVisibleInativo]);
 
   React.useEffect(() => {
-    if (!isModal) {
-      fetchClientes('Ativo', 'initial');
-      fetchClientes('Inativo', 'initial');
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModal]);
+    fetchClientes('Ativo', 'initial');
+    fetchClientes('Inativo', 'initial');
+  }, [fetchClientes]);
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -352,70 +297,29 @@ export default function ClientesPage(props: ClientePageProps) {
     }
   };
 
-
-  const handleFormSubmit = async (data: ClienteFormValues) => {
-    try {
-      if (editingCliente) {
-        const clienteDocRef = doc(db, 'clientes', editingCliente.id!);
-        await updateDoc(clienteDocRef, data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Cliente atualizado com sucesso.',
-        });
-        if (isModal && onSaveSuccess) onSaveSuccess({ value: editingCliente.id!, label: data.nomeRazaoSocial });
-      } else {
-        const docRef = await addDoc(collection(db, 'clientes'), data);
-        toast({
-          title: 'Sucesso!',
-          description: 'Cliente cadastrado com sucesso.',
-        });
-         if (isModal && onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.nomeRazaoSocial });
-      }
-
-      if (!isModal) {
-        form.reset();
-        setEditingCliente(null);
-        setIsFormOpen(false);
-        fetchClientes('Ativo', 'initial');
-        fetchClientes('Inativo', 'initial');
-      }
-    } catch (error) {
-      console.error('Error saving cliente:', error);
-      toast({
-        title: 'Erro ao salvar',
-        description: 'Não foi possível salvar os dados do cliente.',
-        variant: 'destructive',
-      });
-    }
+  const handleSaveSuccess = () => {
+    setIsFormOpen(false);
+    setEditingCliente(null);
+    fetchClientes('Ativo', 'initial');
+    fetchClientes('Inativo', 'initial');
+    setCurrentPageAtivo(1);
+    setCurrentPageInativo(1);
   };
 
   const handleEdit = (cliente: Cliente) => {
     setEditingCliente(cliente);
-    form.reset(cliente);
     setIsFormOpen(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
   
   const handleNew = () => {
     setEditingCliente(null);
-    form.reset({
-        nomeRazaoSocial: '',
-        nomeFantasia: '',
-        tipo: { cliente: true, mecanico: false },
-        status: 'Ativo',
-        observacao: '',
-    });
     setIsFormOpen(true);
   }
 
   const handleCancel = () => {
-    if (isModal && onCancel) {
-        onCancel();
-    } else {
-        setEditingCliente(null);
-        form.reset();
-        setIsFormOpen(false);
-    }
+    setEditingCliente(null);
+    setIsFormOpen(false);
   };
 
   const handleStatusChange = async (id: string, status: 'Ativo' | 'Inativo') => {
@@ -426,10 +330,7 @@ export default function ClientesPage(props: ClientePageProps) {
         title: `Cliente ${status === 'Ativo' ? 'Reativado' : 'Inativado'}`,
         description: `O cliente foi movido para ${status === 'Ativo' ? 'ativos' : 'inativos'}.`,
       });
-      fetchClientes('Ativo', 'initial');
-      fetchClientes('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess(); // Refresh lists
     } catch (error) {
       console.error(`Error ${status === 'Ativo' ? 'reactivating' : 'inactivating'} cliente:`, error);
       toast({
@@ -447,10 +348,7 @@ export default function ClientesPage(props: ClientePageProps) {
         title: 'Cliente Excluído',
         description: 'O cliente foi permanentemente excluído.',
       });
-      fetchClientes('Ativo', 'initial');
-      fetchClientes('Inativo', 'initial');
-      setCurrentPageAtivo(1);
-      setCurrentPageInativo(1);
+      handleSaveSuccess(); // Refresh lists
     } catch (error) {
       console.error('Error deleting cliente:', error);
       toast({
@@ -461,144 +359,42 @@ export default function ClientesPage(props: ClientePageProps) {
     }
   };
 
-
   return (
-    <div className={cn(!isModal && "space-y-6")}>
-      {!isModal && (
-        <div className="flex items-center justify-between">
-            <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-                Cadastro de Clientes/Mecânicos
-            </h1>
-            <p className="text-muted-foreground">
-                Gerencie seus clientes e mecânicos.
-            </p>
-            </div>
-            {!isFormOpen && (
-                <Button onClick={handleNew}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Novo Cliente
-                </Button>
-            )}
-        </div>
-      )}
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+          <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+              Cadastro de Clientes/Mecânicos
+          </h1>
+          <p className="text-muted-foreground">
+              Gerencie seus clientes e mecânicos.
+          </p>
+          </div>
+          {!isFormOpen && (
+              <Button onClick={handleNew}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Novo Cliente
+              </Button>
+          )}
+      </div>
 
       {isFormOpen && (
-        <Card className={cn(isModal && "border-0 shadow-none")}>
-          {!isModal && (
-            <CardHeader>
-                <CardTitle>{editingCliente ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
-                <CardDescription>Preencha os dados do cliente.</CardDescription>
-            </CardHeader>
-          )}
-          <CardContent className={cn(isModal && "p-0")}>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="nomeRazaoSocial"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome / Razão Social</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: João da Silva" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="nomeFantasia"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Nome Fantasia (opcional)</FormLabel>
-                        <FormControl>
-                          <Input {...field} placeholder="Ex: Oficina do João" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-                
-                <FormField
-                  control={form.control}
-                  name="tipo"
-                  render={() => (
-                    <FormItem>
-                        <FormLabel>Tipo</FormLabel>
-                        <div className="flex gap-4 items-center pt-2">
-                           <FormField
-                                control={form.control}
-                                name="tipo.cliente"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                        <FormControl>
-                                            <Checkbox
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Cliente</FormLabel>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="tipo.mecanico"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                        <FormControl>
-                                            <Checkbox
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Mecânico</FormLabel>
-                                        </div>
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                        <FormMessage>{form.formState.errors.tipo?.message}</FormMessage>
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="observacao"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observação</FormLabel>
-                      <FormControl>
-                        <Textarea {...field} placeholder="Alguma observação sobre o cliente..." />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="flex justify-end gap-2 pt-4">
-                  <Button type="button" variant="outline" onClick={handleCancel}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingCliente ? 'Salvar Alterações' : 'Cadastrar'}
-                  </Button>
-                </div>
-              </form>
-            </Form>
+        <Card>
+          <CardHeader>
+              <CardTitle>{editingCliente ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
+              <CardDescription>Preencha os dados do cliente.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ClienteForm
+                initialValues={editingCliente}
+                onSaveSuccess={handleSaveSuccess}
+                onCancel={handleCancel}
+            />
           </CardContent>
         </Card>
       )}
 
-      {!isModal && !isFormOpen && (
+      {!isFormOpen && (
         <Tabs defaultValue="ativos">
             <TabsList>
                 <TabsTrigger value="ativos">Ativos</TabsTrigger>
@@ -635,7 +431,7 @@ export default function ClientesPage(props: ClientePageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Ativo', 'next')}
-                                disabled={currentPageAtivo === Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
+                                disabled={currentPageAtivo >= Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />
@@ -676,7 +472,7 @@ export default function ClientesPage(props: ClientePageProps) {
                             <Button 
                                 variant="outline"
                                 onClick={() => handlePagination('Inativo', 'next')}
-                                disabled={currentPageInativo === Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
+                                disabled={currentPageInativo >= Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
                             >
                                 Próximo
                                 <ChevronsRight className="h-4 w-4" />
