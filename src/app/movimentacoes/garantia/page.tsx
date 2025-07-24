@@ -14,7 +14,12 @@ import {
   limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { MovimentacaoGarantia, Peca, Cliente, Fornecedor } from '@/types/firestore';
+import type {
+  MovimentacaoGarantia,
+  Peca,
+  Cliente,
+  Fornecedor,
+} from '@/types/firestore';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,7 +46,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, ShieldCheck, PlusCircle } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  ShieldCheck,
+  PlusCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -62,7 +71,9 @@ const garantiaSchema = z.object({
   fornecedorId: z.string().min(1, 'Selecione um fornecedor.'),
   dataVenda: z.date({ required_error: 'Data da venda é obrigatória.' }),
   requisicaoVenda: z.string().min(1, 'Requisição de venda é obrigatória.'),
-  defeitoRelatado: z.string().min(10, 'Descreva o defeito com mais detalhes.'),
+  defeitoRelatado: z
+    .string()
+    .min(10, 'Descreva o defeito com mais detalhes.'),
   nfSaida: z.string().min(1, 'NF de Saída é obrigatória.'),
   nfCompra: z.string().min(1, 'NF de Compra é obrigatória.'),
   valorPeca: z.coerce.number().min(0.01, 'O valor da peça é obrigatório.'),
@@ -71,7 +82,7 @@ const garantiaSchema = z.object({
 
 type GarantiaFormValues = z.infer<typeof garantiaSchema>;
 
-export default function GarantiaPage() {
+export default function GarantiaPage(props:any) {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
@@ -79,7 +90,6 @@ export default function GarantiaPage() {
   const [clienteKey, setClienteKey] = React.useState(Date.now());
   const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
   const [fornecedorKey, setFornecedorKey] = React.useState(Date.now());
-
 
   const form = useForm<GarantiaFormValues>({
     resolver: zodResolver(garantiaSchema),
@@ -100,12 +110,12 @@ export default function GarantiaPage() {
     },
   });
 
-   const handlePecaSearch = async (codigoPeca: string) => {
+  const handlePecaSearch = async (codigoPeca: string) => {
     setPecaNaoEncontrada(false);
     setPecaBuscaError('');
     form.setValue('pecaId', '');
     form.setValue('pecaDescricao', '');
-    
+
     if (!codigoPeca) {
       return;
     }
@@ -142,17 +152,22 @@ export default function GarantiaPage() {
     }
   };
 
-
   const handleFormSubmit = async (data: GarantiaFormValues) => {
     try {
       const clienteDoc = await getDoc(doc(db, 'clientes', data.clienteId));
       const mecanicoDoc = await getDoc(doc(db, 'clientes', data.mecanicoId));
-      const fornecedorDoc = await getDoc(doc(db, 'fornecedores', data.fornecedorId));
+      const fornecedorDoc = await getDoc(
+        doc(db, 'fornecedores', data.fornecedorId)
+      );
 
-      if (!clienteDoc.exists() || !mecanicoDoc.exists() || !fornecedorDoc.exists()) {
+      if (
+        !clienteDoc.exists() ||
+        !mecanicoDoc.exists() ||
+        !fornecedorDoc.exists()
+      ) {
         throw new Error('Cliente, mecânico ou fornecedor não encontrado.');
       }
-      
+
       const clienteData = clienteDoc.data() as Cliente;
       const mecanicoData = mecanicoDoc.data() as Cliente;
       const fornecedorData = fornecedorDoc.data() as Fornecedor;
@@ -173,7 +188,7 @@ export default function GarantiaPage() {
       };
 
       await addDoc(collection(db, 'movimentacoes'), garantiaData);
-      
+
       toast({
         title: 'Sucesso!',
         description: 'Solicitação de garantia registrada com sucesso.',
@@ -196,7 +211,6 @@ export default function GarantiaPage() {
       setClienteKey(Date.now());
       setMecanicoKey(Date.now());
       setFornecedorKey(Date.now());
-
     } catch (error) {
       console.error('Error saving garantia:', error);
       toast({
@@ -234,168 +248,202 @@ export default function GarantiaPage() {
               className="space-y-6"
             >
               <div className="flex items-end gap-2">
-                 <div className="flex-grow-[3] basis-0">
-                    <FormField
-                      control={form.control}
-                      name="pecaCodigo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Código da Peça</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Digite o código e saia do campo"
-                              onBlur={(e) => {
-                                  field.onBlur();
-                                  handlePecaSearch(e.target.value);
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                 </div>
-                 <QuickAddModal 
-                    trigger={
-                        <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
-                            <PlusCircle className="h-4 w-4" />
-                        </Button>
-                    }
-                    title="Nova Peça"
-                    description="Cadastre uma nova peça rapidamente."
-                    formComponent={PecasPage}
-                    formProps={{ initialValues: { codigoPeca: form.watch('pecaCodigo') } }}
-                    onSaveSuccess={(newItem) => {
-                        handlePecaSearch(form.watch('pecaCodigo'));
-                    }}
-                 />
-                 <div className="flex-grow-[7] basis-0">
-                    <FormItem>
-                      <FormLabel>Descrição da Peça</FormLabel>
-                       <FormControl>
-                        <Input readOnly {...form.register('pecaDescricao')} placeholder="Descrição será preenchida automaticamente" />
-                      </FormControl>
-                      {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
-                    </FormItem>
-                 </div>
+                <div className="flex-grow-[3] basis-0">
+                  <FormField
+                    control={form.control}
+                    name="pecaCodigo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código da Peça</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Digite o código e saia do campo"
+                            onBlur={(e) => {
+                              field.onBlur();
+                              handlePecaSearch(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <QuickAddModal
+                  trigger={
+                    <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  }
+                  title="Cadastrar Nova Peça"
+                  description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
+                  formComponent={PecasPage}
+                  formProps={{
+                    initialValues: { codigoPeca: form.watch('pecaCodigo') },
+                  }}
+                  onSaveSuccess={() => {
+                    handlePecaSearch(form.watch('pecaCodigo'));
+                  }}
+                />
+                <div className="flex-grow-[7] basis-0">
+                  <FormItem>
+                    <FormLabel>Descrição da Peça</FormLabel>
+                    <FormControl>
+                      <Input
+                        readOnly
+                        {...form.register('pecaDescricao')}
+                        placeholder="Descrição será preenchida automaticamente"
+                      />
+                    </FormControl>
+                    {pecaBuscaError && (
+                      <p className="text-sm font-medium text-destructive">
+                        {pecaBuscaError}
+                      </p>
+                    )}
+                  </FormItem>
+                </div>
               </div>
 
-                <FormField
-                  control={form.control}
-                  name="quantidade"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantidade</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="quantidade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantidade</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormItem>
-                    <FormLabel>Cliente</FormLabel>
-                     <div className="flex items-center gap-2">
-                        <FormField
-                            control={form.control}
-                            name="clienteId"
-                            render={({ field }) => (
-                                <SearchCombobox
-                                    key={clienteKey}
-                                    collectionName="clientes"
-                                    labelField="nomeRazaoSocial"
-                                    searchField="nomeRazaoSocial"
-                                    placeholder="Selecione o cliente"
-                                    emptyMessage="Nenhum cliente encontrado."
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    className="w-full"
-                                />
-                            )}
+                <FormItem>
+                  <FormLabel>Cliente</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormField
+                      control={form.control}
+                      name="clienteId"
+                      render={({ field }) => (
+                        <SearchCombobox
+                          key={clienteKey}
+                          collectionName="clientes"
+                          labelField="nomeRazaoSocial"
+                          searchField="nomeRazaoSocial"
+                          placeholder="Selecione o cliente"
+                          emptyMessage="Nenhum cliente encontrado."
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full"
                         />
-                         <QuickAddModal 
-                            trigger={<Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>}
-                            title="Novo Cliente"
-                            description="Cadastre um novo cliente ou mecânico rapidamente."
-                            formComponent={ClientesPage}
-                            onSaveSuccess={(newItem) => {
-                                setClienteKey(Date.now());
-                                form.setValue('clienteId', newItem.value, { shouldValidate: true });
-                            }}
+                      )}
+                    />
+                    <QuickAddModal
+                      trigger={
+                        <Button type="button" size="icon" variant="outline">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                      title="Novo Cliente"
+                      description="Cadastre um novo cliente ou mecânico rapidamente."
+                      formComponent={ClientesPage}
+                      onSaveSuccess={(newItem) => {
+                        setClienteKey(Date.now());
+                        form.setValue('clienteId', newItem.value, {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <FormMessage>
+                    {form.formState.errors.clienteId?.message}
+                  </FormMessage>
+                </FormItem>
+                <FormItem>
+                  <FormLabel>Mecânico</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormField
+                      control={form.control}
+                      name="mecanicoId"
+                      render={({ field }) => (
+                        <SearchCombobox
+                          key={mecanicoKey}
+                          collectionName="clientes"
+                          labelField="nomeRazaoSocial"
+                          searchField="nomeRazaoSocial"
+                          placeholder="Selecione o mecânico"
+                          emptyMessage="Nenhum mecânico encontrado."
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full"
                         />
-                    </div>
-                     <FormMessage>{form.formState.errors.clienteId?.message}</FormMessage>
-                 </FormItem>
-                 <FormItem>
-                    <FormLabel>Mecânico</FormLabel>
-                     <div className="flex items-center gap-2">
-                        <FormField
-                            control={form.control}
-                            name="mecanicoId"
-                            render={({ field }) => (
-                                <SearchCombobox
-                                    key={mecanicoKey}
-                                    collectionName="clientes"
-                                    labelField="nomeRazaoSocial"
-                                    searchField="nomeRazaoSocial"
-                                    placeholder="Selecione o mecânico"
-                                    emptyMessage="Nenhum mecânico encontrado."
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    className="w-full"
-                                />
-                            )}
-                        />
-                         <QuickAddModal 
-                            trigger={<Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>}
-                            title="Novo Mecânico"
-                            description="Cadastre um novo cliente ou mecânico rapidamente."
-                            formComponent={ClientesPage}
-                            onSaveSuccess={(newItem) => {
-                                setMecanicoKey(Date.now());
-                                form.setValue('mecanicoId', newItem.value, { shouldValidate: true });
-                            }}
-                        />
-                    </div>
-                    <FormMessage>{form.formState.errors.mecanicoId?.message}</FormMessage>
-                 </FormItem>
+                      )}
+                    />
+                    <QuickAddModal
+                      trigger={
+                        <Button type="button" size="icon" variant="outline">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                      title="Novo Mecânico"
+                      description="Cadastre um novo cliente ou mecânico rapidamente."
+                      formComponent={ClientesPage}
+                      onSaveSuccess={(newItem) => {
+                        setMecanicoKey(Date.now());
+                        form.setValue('mecanicoId', newItem.value, {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <FormMessage>
+                    {form.formState.errors.mecanicoId?.message}
+                  </FormMessage>
+                </FormItem>
               </div>
-              
+
               <FormItem>
                 <FormLabel>Fornecedor</FormLabel>
-                 <div className="flex items-center gap-2">
-                    <FormField
-                        control={form.control}
-                        name="fornecedorId"
-                        render={({ field }) => (
-                            <SearchCombobox
-                                key={fornecedorKey}
-                                collectionName="fornecedores"
-                                labelField={['razaoSocial', 'nomeFantasia']}
-                                searchField="razaoSocial"
-                                placeholder="Selecione o fornecedor"
-                                emptyMessage="Nenhum fornecedor encontrado."
-                                value={field.value}
-                                onChange={field.onChange}
-                                className="w-full"
-                            />
-                        )}
-                        />
-                    <QuickAddModal 
-                        trigger={<Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>}
-                        title="Novo Fornecedor"
-                        description="Cadastre um novo fornecedor rapidamente."
-                        formComponent={FornecedoresPage}
-                        onSaveSuccess={(newItem) => {
-                            setFornecedorKey(Date.now());
-                            form.setValue('fornecedorId', newItem.value, { shouldValidate: true });
-                        }}
-                    />
+                <div className="flex items-center gap-2">
+                  <FormField
+                    control={form.control}
+                    name="fornecedorId"
+                    render={({ field }) => (
+                      <SearchCombobox
+                        key={fornecedorKey}
+                        collectionName="fornecedores"
+                        labelField={['razaoSocial', 'nomeFantasia']}
+                        searchField="razaoSocial"
+                        placeholder="Selecione o fornecedor"
+                        emptyMessage="Nenhum fornecedor encontrado."
+                        value={field.value}
+                        onChange={field.onChange}
+                        className="w-full"
+                      />
+                    )}
+                  />
+                  <QuickAddModal
+                    trigger={
+                      <Button type="button" size="icon" variant="outline">
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    }
+                    title="Novo Fornecedor"
+                    description="Cadastre um novo fornecedor rapidamente."
+                    formComponent={FornecedoresPage}
+                    onSaveSuccess={(newItem) => {
+                      setFornecedorKey(Date.now());
+                      form.setValue('fornecedorId', newItem.value, {
+                        shouldValidate: true,
+                      });
+                    }}
+                  />
                 </div>
-                <FormMessage>{form.formState.errors.fornecedorId?.message}</FormMessage>
+                <FormMessage>
+                  {form.formState.errors.fornecedorId?.message}
+                </FormMessage>
               </FormItem>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -403,7 +451,7 @@ export default function GarantiaPage() {
                   control={form.control}
                   name="dataVenda"
                   render={({ field }) => (
-                     <FormItem className="flex flex-col">
+                    <FormItem className="flex flex-col">
                       <FormLabel>Data da Venda</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
@@ -454,9 +502,9 @@ export default function GarantiaPage() {
                   )}
                 />
               </div>
-              
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 <FormField
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
                   control={form.control}
                   name="nfSaida"
                   render={({ field }) => (
@@ -495,7 +543,7 @@ export default function GarantiaPage() {
                     </FormItem>
                   )}
                 />
-               </div>
+              </div>
 
               <FormField
                 control={form.control}
@@ -532,8 +580,11 @@ export default function GarantiaPage() {
               />
 
               <div className="flex justify-end gap-2">
-                 <Button type="button" variant="outline" onClick={() => {
-                   form.reset({
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    form.reset({
                       pecaId: '',
                       pecaCodigo: '',
                       pecaDescricao: '',
@@ -547,11 +598,12 @@ export default function GarantiaPage() {
                       nfCompra: '',
                       valorPeca: 0,
                       observacao: '',
-                   });
-                   setClienteKey(Date.now());
-                   setMecanicoKey(Date.now());
-                   setFornecedorKey(Date.now());
-                 }}>
+                    });
+                    setClienteKey(Date.now());
+                    setMecanicoKey(Date.now());
+                    setFornecedorKey(Date.now());
+                  }}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit">Registrar Garantia</Button>
@@ -563,3 +615,5 @@ export default function GarantiaPage() {
     </div>
   );
 }
+
+    

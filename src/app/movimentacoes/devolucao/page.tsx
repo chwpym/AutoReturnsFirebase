@@ -75,7 +75,7 @@ const devolucaoSchema = z.object({
 
 type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 
-export default function DevolucaoPage() {
+export default function DevolucaoPage(props:any) {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
@@ -226,139 +226,167 @@ export default function DevolucaoPage() {
               className="space-y-6"
             >
               <div className="flex items-end gap-2">
-                 <div className="flex-grow-[3] basis-0">
-                    <FormField
-                      control={form.control}
-                      name="pecaCodigo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Código da Peça</FormLabel>
-                          <FormControl>
-                            <Input 
-                              {...field} 
-                              placeholder="Digite o código e saia do campo"
-                              onBlur={(e) => {
-                                  field.onBlur();
-                                  handlePecaSearch(e.target.value);
-                              }}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                 </div>
-                 <QuickAddModal 
-                    trigger={
-                        <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
-                            <PlusCircle className="h-4 w-4" />
-                        </Button>
-                    }
-                    title="Nova Peça"
-                    description="Cadastre uma nova peça rapidamente."
-                    formComponent={PecasPage}
-                    formProps={{ initialValues: { codigoPeca: form.watch('pecaCodigo') } }}
-                    onSaveSuccess={(newItem) => {
-                        handlePecaSearch(form.watch('pecaCodigo'));
-                    }}
-                 />
-                 <div className="flex-grow-[7] basis-0">
-                    <FormItem>
-                      <FormLabel>Descrição da Peça</FormLabel>
-                      <FormControl>
-                        <Input readOnly {...form.register('pecaDescricao')} placeholder="Descrição será preenchida automaticamente" />
-                      </FormControl>
-                      {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
-                    </FormItem>
-                 </div>
-              </div>
+                <div className="flex-grow-[3] basis-0">
+                  <FormField
+                    control={form.control}
+                    name="pecaCodigo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código da Peça</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            placeholder="Digite o código e saia do campo"
+                            onBlur={(e) => {
+                              field.onBlur();
+                              handlePecaSearch(e.target.value);
+                            }}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-                <FormField
-                  control={form.control}
-                  name="quantidade"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Quantidade</FormLabel>
-                      <FormControl>
-                        <Input type="number" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                <QuickAddModal
+                  trigger={
+                    <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  }
+                  title="Cadastrar Nova Peça"
+                  description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
+                  formComponent={PecasPage}
+                  formProps={{
+                    initialValues: { codigoPeca: form.watch('pecaCodigo') },
+                  }}
+                  onSaveSuccess={() => {
+                    handlePecaSearch(form.watch('pecaCodigo'));
+                  }}
                 />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormItem>
-                    <FormLabel>Cliente</FormLabel>
-                     <div className="flex items-center gap-2">
-                        <FormField
-                            control={form.control}
-                            name="clienteId"
-                            render={({ field }) => (
-                                <SearchCombobox
-                                    key={clienteKey}
-                                    collectionName="clientes"
-                                    labelField="nomeRazaoSocial"
-                                    searchField="nomeRazaoSocial"
-                                    placeholder="Selecione o cliente"
-                                    emptyMessage="Nenhum cliente encontrado."
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    className="w-full"
-                                />
-                            )}
-                        />
-                        <QuickAddModal 
-                            trigger={<Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>}
-                            title="Novo Cliente"
-                            description="Cadastre um novo cliente ou mecânico rapidamente."
-                            formComponent={ClientesPage}
-                            onSaveSuccess={(newItem) => {
-                                setClienteKey(Date.now());
-                                form.setValue('clienteId', newItem.value, { shouldValidate: true });
-                            }}
-                        />
-                    </div>
-                    <FormMessage>{form.formState.errors.clienteId?.message}</FormMessage>
-                 </FormItem>
+                <div className="flex-grow-[7] basis-0">
+                  <FormItem>
+                    <FormLabel>Descrição da Peça</FormLabel>
+                    <FormControl>
+                      <Input
+                        readOnly
+                        {...form.register('pecaDescricao')}
+                        placeholder="Descrição será preenchida automaticamente"
+                      />
+                    </FormControl>
+                    {pecaBuscaError && (
+                      <p className="text-sm font-medium text-destructive">
+                        {pecaBuscaError}
+                      </p>
+                    )}
+                  </FormItem>
+                </div>
+              </div>
 
-                 <FormItem>
-                    <FormLabel>Mecânico</FormLabel>
-                     <div className="flex items-center gap-2">
-                        <FormField
-                            control={form.control}
-                            name="mecanicoId"
-                            render={({ field }) => (
-                                <SearchCombobox
-                                    key={mecanicoKey}
-                                    collectionName="clientes"
-                                    labelField="nomeRazaoSocial"
-                                    searchField="nomeRazaoSocial"
-                                    placeholder="Selecione o mecânico"
-                                    emptyMessage="Nenhum mecânico encontrado."
-                                    value={field.value}
-                                    onChange={field.onChange}
-                                    className="w-full"
-                                />
-                            )}
+              <FormField
+                control={form.control}
+                name="quantidade"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Quantidade</FormLabel>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormItem>
+                  <FormLabel>Cliente</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormField
+                      control={form.control}
+                      name="clienteId"
+                      render={({ field }) => (
+                        <SearchCombobox
+                          key={clienteKey}
+                          collectionName="clientes"
+                          labelField="nomeRazaoSocial"
+                          searchField="nomeRazaoSocial"
+                          placeholder="Selecione o cliente"
+                          emptyMessage="Nenhum cliente encontrado."
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full"
                         />
-                         <QuickAddModal 
-                            trigger={<Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>}
-                            title="Novo Mecânico"
-                            description="Cadastre um novo cliente ou mecânico rapidamente."
-                            formComponent={ClientesPage}
-                            onSaveSuccess={(newItem) => {
-                                setMecanicoKey(Date.now());
-                                form.setValue('mecanicoId', newItem.value, { shouldValidate: true });
-                            }}
+                      )}
+                    />
+                    <QuickAddModal
+                      trigger={
+                        <Button type="button" size="icon" variant="outline">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                      title="Novo Cliente"
+                      description="Cadastre um novo cliente ou mecânico rapidamente."
+                      formComponent={ClientesPage}
+                      onSaveSuccess={(newItem) => {
+                        setClienteKey(Date.now());
+                        form.setValue('clienteId', newItem.value, {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <FormMessage>
+                    {form.formState.errors.clienteId?.message}
+                  </FormMessage>
+                </FormItem>
+
+                <FormItem>
+                  <FormLabel>Mecânico</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormField
+                      control={form.control}
+                      name="mecanicoId"
+                      render={({ field }) => (
+                        <SearchCombobox
+                          key={mecanicoKey}
+                          collectionName="clientes"
+                          labelField="nomeRazaoSocial"
+                          searchField="nomeRazaoSocial"
+                          placeholder="Selecione o mecânico"
+                          emptyMessage="Nenhum mecânico encontrado."
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full"
                         />
-                    </div>
-                     <FormMessage>{form.formState.errors.mecanicoId?.message}</FormMessage>
-                 </FormItem>
+                      )}
+                    />
+                    <QuickAddModal
+                      trigger={
+                        <Button type="button" size="icon" variant="outline">
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                      title="Novo Mecânico"
+                      description="Cadastre um novo cliente ou mecânico rapidamente."
+                      formComponent={ClientesPage}
+                      onSaveSuccess={(newItem) => {
+                        setMecanicoKey(Date.now());
+                        form.setValue('mecanicoId', newItem.value, {
+                          shouldValidate: true,
+                        });
+                      }}
+                    />
+                  </div>
+                  <FormMessage>
+                    {form.formState.errors.mecanicoId?.message}
+                  </FormMessage>
+                </FormItem>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormField
+                <FormField
                   control={form.control}
                   name="dataVenda"
                   render={({ field }) => (
@@ -399,7 +427,7 @@ export default function DevolucaoPage() {
                     </FormItem>
                   )}
                 />
-                 <FormField
+                <FormField
                   control={form.control}
                   name="requisicaoVenda"
                   render={({ field }) => (
@@ -413,7 +441,7 @@ export default function DevolucaoPage() {
                   )}
                 />
               </div>
-                
+
               <FormField
                 control={form.control}
                 name="acaoRequisicao"
@@ -457,20 +485,24 @@ export default function DevolucaoPage() {
               />
 
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  form.reset({
-                    pecaId: '',
-                    pecaCodigo: '',
-                    pecaDescricao: '',
-                    quantidade: 1,
-                    clienteId: '',
-                    mecanicoId: '',
-                    requisicaoVenda: '',
-                    observacao: '',
-                  });
-                   setClienteKey(Date.now());
-                   setMecanicoKey(Date.now());
-                }}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    form.reset({
+                      pecaId: '',
+                      pecaCodigo: '',
+                      pecaDescricao: '',
+                      quantidade: 1,
+                      clienteId: '',
+                      mecanicoId: '',
+                      requisicaoVenda: '',
+                      observacao: '',
+                    });
+                    setClienteKey(Date.now());
+                    setMecanicoKey(Date.now());
+                  }}
+                >
                   Cancelar
                 </Button>
                 <Button type="submit">Registrar Devolução</Button>
@@ -482,3 +514,5 @@ export default function DevolucaoPage() {
     </div>
   );
 }
+
+    
