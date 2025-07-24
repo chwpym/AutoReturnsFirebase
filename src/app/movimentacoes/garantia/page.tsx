@@ -256,8 +256,8 @@ export default function GarantiaPage() {
               onSubmit={form.handleSubmit(handleFormSubmit)}
               className="space-y-6"
             >
-              <div className="grid grid-cols-10 gap-x-2 items-end">
-                <div className="col-span-3">
+              <div className="flex items-end gap-2">
+                <div className="w-1/3">
                     <FormField
                       control={form.control}
                       name="pecaCodigo"
@@ -279,26 +279,26 @@ export default function GarantiaPage() {
                       )}
                     />
                 </div>
-                <div className="col-span-1">
-                   <QuickAddModal
-                      trigger={
-                        <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
-                          <PlusCircle className="h-4 w-4" />
-                        </Button>
-                      }
-                      title="Cadastrar Nova Peça"
-                      description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
-                      formComponent={PecaForm}
-                      formProps={{
-                        isModal: true,
-                        initialValues: { codigoPeca: form.watch('pecaCodigo') },
-                      }}
-                      onSaveSuccess={() => {
-                        handlePecaSearch(form.watch('pecaCodigo'));
-                      }}
-                    />
-                </div>
-                <div className="col-span-6">
+                
+                <QuickAddModal
+                    trigger={
+                      <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    }
+                    title="Cadastrar Nova Peça"
+                    description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
+                    formComponent={PecaForm}
+                    formProps={{
+                      isModal: true,
+                      initialValues: { codigoPeca: form.watch('pecaCodigo') },
+                    }}
+                    onSaveSuccess={() => {
+                      handlePecaSearch(form.watch('pecaCodigo'));
+                    }}
+                  />
+                
+                <div className="flex-1">
                   <FormItem>
                     <FormLabel>Descrição da Peça</FormLabel>
                     <FormControl>
@@ -308,11 +308,12 @@ export default function GarantiaPage() {
                         placeholder="Preenchido automaticamente"
                       />
                     </FormControl>
-                    {pecaBuscaError && (
+                    {pecaBuscaError && !form.formState.errors.pecaId && (
                       <p className="text-sm font-medium text-destructive">
                         {pecaBuscaError}
                       </p>
                     )}
+                    <FormMessage>{form.formState.errors.pecaId?.message}</FormMessage>
                   </FormItem>
                 </div>
               </div>
