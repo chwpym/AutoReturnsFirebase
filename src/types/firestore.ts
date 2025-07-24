@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Cliente {
@@ -33,14 +34,16 @@ interface MovimentacaoBase {
   id?: string;
   tipoMovimentacao: 'Devolução' | 'Garantia';
   pecaId: string;
-  pecaDescricao: string;
+  pecaDescricao: string; // Denormalized
   quantidade: number;
   clienteId: string;
+  clienteNome: string; // Denormalized
   mecanicoId: string;
+  mecanicoNome: string; // Denormalized
   dataVenda: Timestamp;
   dataMovimentacao: Timestamp;
   requisicaoVenda: string;
-  observacao: string;
+  observacao?: string;
 }
 
 export interface MovimentacaoDevolucao extends MovimentacaoBase {
@@ -51,12 +54,12 @@ export interface MovimentacaoDevolucao extends MovimentacaoBase {
 export interface MovimentacaoGarantia extends MovimentacaoBase {
   tipoMovimentacao: 'Garantia';
   fornecedorId: string;
+  fornecedorNome: string; // Denormalized
   defeitoRelatado: string;
   nfSaida: string;
   nfCompra: string;
   valorPeca: number;
   nfRetorno: string;
-
   acaoRetorno: 'Pendente' | 'Aprovada' | 'Recusada';
 }
 
