@@ -71,13 +71,14 @@ const garantiaSchema = z.object({
   mecanicoId: z.string().min(1, 'Selecione um mecânico.'),
   fornecedorId: z.string().min(1, 'Selecione um fornecedor.'),
   dataVenda: z.date({ required_error: 'Data da venda é obrigatória.' }),
-  requisicaoVenda: z.string().min(1, 'Requisição de venda é obrigatória.'),
+  requisicaoVenda: z.string().optional(),
+  requisicaoGarantia: z.string().optional(),
   defeitoRelatado: z
     .string()
     .min(10, 'Descreva o defeito com mais detalhes.'),
-  nfSaida: z.string().min(1, 'NF de Saída é obrigatória.'),
-  nfCompra: z.string().min(1, 'NF de Compra é obrigatória.'),
-  valorPeca: z.coerce.number().min(0.01, 'O valor da peça é obrigatório.'),
+  nfSaida: z.string().optional(),
+  nfCompra: z.string().optional(),
+  valorPeca: z.coerce.number().optional(),
   observacao: z.string().optional(),
 });
 
@@ -103,10 +104,11 @@ export default function GarantiaPage() {
       mecanicoId: '',
       fornecedorId: '',
       requisicaoVenda: '',
+      requisicaoGarantia: '',
       defeitoRelatado: '',
       nfSaida: '',
       nfCompra: '',
-      valorPeca: 0,
+      valorPeca: undefined,
       observacao: '',
     },
   });
@@ -178,6 +180,11 @@ export default function GarantiaPage() {
       const garantiaData: Omit<MovimentacaoGarantia, 'id'> = {
         ...restData,
         pecaCodigo,
+        requisicaoVenda: data.requisicaoVenda || '',
+        requisicaoGarantia: data.requisicaoGarantia || '',
+        nfSaida: data.nfSaida || '',
+        nfCompra: data.nfCompra || '',
+        valorPeca: data.valorPeca || 0,
         tipoMovimentacao: 'Garantia',
         dataMovimentacao: Timestamp.now(),
         dataVenda: Timestamp.fromDate(data.dataVenda),
@@ -203,10 +210,11 @@ export default function GarantiaPage() {
         mecanicoId: '',
         fornecedorId: '',
         requisicaoVenda: '',
+        requisicaoGarantia: '',
         defeitoRelatado: '',
         nfSaida: '',
         nfCompra: '',
-        valorPeca: 0,
+        valorPeca: undefined,
         observacao: '',
       });
       setClienteKey(Date.now());
@@ -248,54 +256,56 @@ export default function GarantiaPage() {
               onSubmit={form.handleSubmit(handleFormSubmit)}
               className="space-y-6"
             >
-              <div className="flex items-end gap-2">
-                <div className="flex-grow-[3] basis-0">
-                  <FormField
-                    control={form.control}
-                    name="pecaCodigo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Código da Peça</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder="Digite o código e saia do campo"
-                            onBlur={(e) => {
-                              field.onBlur();
-                              handlePecaSearch(e.target.value);
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+              <div className="grid grid-cols-10 gap-x-2 items-end">
+                <div className="col-span-3">
+                    <FormField
+                      control={form.control}
+                      name="pecaCodigo"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Código da Peça</FormLabel>
+                          <FormControl>
+                            <Input
+                              {...field}
+                              placeholder="Digite o código"
+                              onBlur={(e) => {
+                                field.onBlur();
+                                handlePecaSearch(e.target.value);
+                              }}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                 </div>
-                <QuickAddModal
-                  trigger={
-                    <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
-                  }
-                  title="Cadastrar Nova Peça"
-                  description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
-                  formComponent={PecaForm}
-                  formProps={{
-                    isModal: true,
-                    initialValues: { codigoPeca: form.watch('pecaCodigo') },
-                  }}
-                  onSaveSuccess={() => {
-                    handlePecaSearch(form.watch('pecaCodigo'));
-                  }}
-                />
-                <div className="flex-grow-[7] basis-0">
+                <div className="col-span-1">
+                   <QuickAddModal
+                      trigger={
+                        <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                          <PlusCircle className="h-4 w-4" />
+                        </Button>
+                      }
+                      title="Cadastrar Nova Peça"
+                      description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
+                      formComponent={PecaForm}
+                      formProps={{
+                        isModal: true,
+                        initialValues: { codigoPeca: form.watch('pecaCodigo') },
+                      }}
+                      onSaveSuccess={() => {
+                        handlePecaSearch(form.watch('pecaCodigo'));
+                      }}
+                    />
+                </div>
+                <div className="col-span-6">
                   <FormItem>
                     <FormLabel>Descrição da Peça</FormLabel>
                     <FormControl>
                       <Input
                         readOnly
                         {...form.register('pecaDescricao')}
-                        placeholder="Descrição será preenchida automaticamente"
+                        placeholder="Preenchido automaticamente"
                       />
                     </FormControl>
                     {pecaBuscaError && (
@@ -307,19 +317,62 @@ export default function GarantiaPage() {
                 </div>
               </div>
 
-              <FormField
-                control={form.control}
-                name="quantidade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantidade</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="quantidade"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Quantidade</FormLabel>
+                      <FormControl>
+                        <Input type="number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dataVenda"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data da Venda</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'dd/MM/yyyy')
+                              ) : (
+                                <span>Escolha uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date('1900-01-01')
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormItem>
@@ -450,55 +503,27 @@ export default function GarantiaPage() {
                   {form.formState.errors.fornecedorId?.message}
                 </FormMessage>
               </FormItem>
-
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="dataVenda"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Data da Venda</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={'outline'}
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'dd/MM/yyyy')
-                              ) : (
-                                <span>Escolha uma data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date('1900-01-01')
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="requisicaoVenda"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Requisição de Venda</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="requisicaoGarantia"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Requisição de Garantia</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
@@ -542,7 +567,7 @@ export default function GarantiaPage() {
                     <FormItem>
                       <FormLabel>Valor da Peça (R$)</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" {...field} />
+                        <Input type="number" step="0.01" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -584,7 +609,7 @@ export default function GarantiaPage() {
                 )}
               />
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -601,7 +626,7 @@ export default function GarantiaPage() {
                       defeitoRelatado: '',
                       nfSaida: '',
                       nfCompra: '',
-                      valorPeca: 0,
+                      valorPeca: undefined,
                       observacao: '',
                     });
                     setClienteKey(Date.now());

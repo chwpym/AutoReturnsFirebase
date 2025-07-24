@@ -57,6 +57,7 @@ export interface MovimentacaoGarantia extends MovimentacaoBase {
   fornecedorId: string;
   fornecedorNome: string; // Denormalized
   defeitoRelatado: string;
+  requisicaoGarantia: string;
   nfSaida: string;
   nfCompra: string;
   valorPeca: number;

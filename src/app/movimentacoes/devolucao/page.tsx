@@ -66,7 +66,7 @@ const devolucaoSchema = z.object({
   clienteId: z.string().min(1, 'Selecione um cliente.'),
   mecanicoId: z.string().min(1, 'Selecione um mecânico.'),
   dataVenda: z.date({ required_error: 'Data da venda é obrigatória.' }),
-  requisicaoVenda: z.string().min(1, 'Requisição de venda é obrigatória.'),
+  requisicaoVenda: z.string().optional(),
   acaoRequisicao: z.enum(['Alterada', 'Excluída'], {
     required_error: 'Selecione uma ação.',
   }),
@@ -162,7 +162,7 @@ export default function DevolucaoPage() {
         mecanicoId: data.mecanicoId,
         mecanicoNome: mecanicoData.nomeRazaoSocial,
         dataVenda: Timestamp.fromDate(data.dataVenda),
-        requisicaoVenda: data.requisicaoVenda,
+        requisicaoVenda: data.requisicaoVenda || '',
         acaoRequisicao: data.acaoRequisicao,
         observacao: data.observacao,
         tipoMovimentacao: 'Devolução',
@@ -225,8 +225,8 @@ export default function DevolucaoPage() {
               onSubmit={form.handleSubmit(handleFormSubmit)}
               className="space-y-6"
             >
-              <div className="flex items-end gap-2">
-                <div className="flex-grow-[3] basis-0">
+              <div className="grid grid-cols-10 gap-x-2 items-end">
+                <div className="col-span-3">
                   <FormField
                     control={form.control}
                     name="pecaCodigo"
@@ -236,7 +236,7 @@ export default function DevolucaoPage() {
                         <FormControl>
                           <Input
                             {...field}
-                            placeholder="Digite o código e saia do campo"
+                            placeholder="Digite o código"
                             onBlur={(e) => {
                               field.onBlur();
                               handlePecaSearch(e.target.value);
@@ -248,33 +248,34 @@ export default function DevolucaoPage() {
                     )}
                   />
                 </div>
+                <div className="col-span-1">
+                  <QuickAddModal
+                    trigger={
+                      <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    }
+                    title="Cadastrar Nova Peça"
+                    description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
+                    formComponent={PecaForm}
+                    formProps={{
+                      isModal: true,
+                      initialValues: { codigoPeca: form.watch('pecaCodigo') },
+                    }}
+                    onSaveSuccess={() => {
+                      handlePecaSearch(form.watch('pecaCodigo'));
+                    }}
+                  />
+                </div>
 
-                <QuickAddModal
-                  trigger={
-                    <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
-                      <PlusCircle className="h-4 w-4" />
-                    </Button>
-                  }
-                  title="Cadastrar Nova Peça"
-                  description="A peça não foi encontrada. Cadastre-a rapidamente aqui."
-                  formComponent={PecaForm}
-                  formProps={{
-                    isModal: true,
-                    initialValues: { codigoPeca: form.watch('pecaCodigo') },
-                  }}
-                  onSaveSuccess={() => {
-                    handlePecaSearch(form.watch('pecaCodigo'));
-                  }}
-                />
-
-                <div className="flex-grow-[7] basis-0">
+                <div className="col-span-6">
                   <FormItem>
                     <FormLabel>Descrição da Peça</FormLabel>
                     <FormControl>
                       <Input
                         readOnly
                         {...form.register('pecaDescricao')}
-                        placeholder="Descrição será preenchida automaticamente"
+                        placeholder="Preenchido automaticamente"
                       />
                     </FormControl>
                     {pecaBuscaError && (
@@ -285,20 +286,63 @@ export default function DevolucaoPage() {
                   </FormItem>
                 </div>
               </div>
-
-              <FormField
-                control={form.control}
-                name="quantidade"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Quantidade</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
+                    name="quantidade"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade</FormLabel>
+                        <FormControl>
+                          <Input type="number" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                  control={form.control}
+                  name="dataVenda"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Data da Venda</FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={'outline'}
+                              className={cn(
+                                'w-full pl-3 text-left font-normal',
+                                !field.value && 'text-muted-foreground'
+                              )}
+                            >
+                              {field.value ? (
+                                format(field.value, 'dd/MM/yyyy')
+                              ) : (
+                                <span>Escolha uma data</span>
+                              )}
+                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date('1900-01-01')
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormItem>
@@ -389,48 +433,7 @@ export default function DevolucaoPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="dataVenda"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Data da Venda</FormLabel>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={'outline'}
-                              className={cn(
-                                'w-full pl-3 text-left font-normal',
-                                !field.value && 'text-muted-foreground'
-                              )}
-                            >
-                              {field.value ? (
-                                format(field.value, 'dd/MM/yyyy')
-                              ) : (
-                                <span>Escolha uma data</span>
-                              )}
-                              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date('1900-01-01')
-                            }
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
+                 <FormField
                   control={form.control}
                   name="requisicaoVenda"
                   render={({ field }) => (
@@ -443,32 +446,31 @@ export default function DevolucaoPage() {
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="acaoRequisicao"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ação na Requisição de Venda</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a ação realizada" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Alterada">Alterada</SelectItem>
+                          <SelectItem value="Excluída">Excluída</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
-
-              <FormField
-                control={form.control}
-                name="acaoRequisicao"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ação na Requisição de Venda</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a ação realizada" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Alterada">Alterada</SelectItem>
-                        <SelectItem value="Excluída">Excluída</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
 
               <FormField
                 control={form.control}
@@ -487,7 +489,7 @@ export default function DevolucaoPage() {
                 )}
               />
 
-              <div className="flex justify-end gap-2">
+              <div className="flex justify-end gap-2 pt-4">
                 <Button
                   type="button"
                   variant="outline"
