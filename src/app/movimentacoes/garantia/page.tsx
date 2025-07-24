@@ -45,7 +45,7 @@ import { Calendar as CalendarIcon, ShieldCheck, PlusCircle } from 'lucide-react'
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { SearchCombobox, type ComboboxOption } from '@/components/search-combobox';
+import { SearchCombobox } from '@/components/search-combobox';
 import { Calendar } from '@/components/ui/calendar';
 import { QuickAddModal } from '@/components/quick-add-modal';
 import ClientesPage from '@/app/cadastros/clientes/page';
@@ -230,7 +230,7 @@ export default function GarantiaPage() {
                           <FormControl>
                             <Input 
                               {...field} 
-                              placeholder="Digite o código e saia do campo"
+                              placeholder="Digite o código"
                               onBlur={(e) => {
                                   field.onBlur();
                                   handlePecaSearch(e.target.value);
@@ -241,15 +241,6 @@ export default function GarantiaPage() {
                         </FormItem>
                       )}
                     />
-                 </div>
-                 <div className="flex-grow-[7] basis-0">
-                    <FormItem>
-                      <FormLabel>Descrição da Peça</FormLabel>
-                       <FormControl>
-                        <Input readOnly value={form.watch('pecaDescricao')} placeholder="Descrição será preenchida" />
-                      </FormControl>
-                      {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
-                    </FormItem>
                  </div>
                  <QuickAddModal 
                     trigger={
@@ -269,6 +260,15 @@ export default function GarantiaPage() {
                         handlePecaSearch(form.watch('pecaCodigo'));
                     }}
                  />
+                 <div className="flex-grow-[7] basis-0">
+                    <FormItem>
+                      <FormLabel>Descrição da Peça</FormLabel>
+                       <FormControl>
+                        <Input readOnly value={form.watch('pecaDescricao')} placeholder="Descrição será preenchida" />
+                      </FormControl>
+                      {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
+                    </FormItem>
+                 </div>
               </div>
 
                 <FormField
@@ -364,7 +364,7 @@ export default function GarantiaPage() {
                             <SearchCombobox
                                 key={fornecedorKey}
                                 collectionName="fornecedores"
-                                labelField="razaoSocial"
+                                labelField={['razaoSocial', 'nomeFantasia']}
                                 searchField="razaoSocial"
                                 placeholder="Selecione o fornecedor"
                                 emptyMessage="Nenhum fornecedor encontrado."

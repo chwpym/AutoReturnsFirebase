@@ -53,9 +53,10 @@ import { Calendar as CalendarIcon, Undo2, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { SearchCombobox, type ComboboxOption } from '@/components/search-combobox';
+import { SearchCombobox } from '@/components/search-combobox';
 import { QuickAddModal } from '@/components/quick-add-modal';
 import ClientesPage from '@/app/cadastros/clientes/page';
+import PecasPage from '@/app/cadastros/pecas/page';
 
 const devolucaoSchema = z.object({
   pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
@@ -77,8 +78,8 @@ type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 export default function DevolucaoPage() {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
+  const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
   
-  // States to force re-render of comboboxes after quick add
   const [clienteKey, setClienteKey] = React.useState(Date.now());
   const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
 
@@ -97,6 +98,7 @@ export default function DevolucaoPage() {
   });
 
   const handlePecaSearch = async (codigoPeca: string) => {
+    setPecaNaoEncontrada(false);
     if (!codigoPeca) {
       form.setValue('pecaId', '');
       form.setValue('pecaDescricao', '');
@@ -116,13 +118,15 @@ export default function DevolucaoPage() {
       if (!querySnapshot.empty) {
         const pecaDoc = querySnapshot.docs[0];
         const pecaData = pecaDoc.data() as Peca;
-        form.setValue('pecaId', pecaDoc.id);
+        form.setValue('pecaId', pecaDoc.id, { shouldValidate: true });
         form.setValue('pecaDescricao', pecaData.descricao);
         setPecaBuscaError('');
+        setPecaNaoEncontrada(false);
       } else {
-        form.setValue('pecaId', '');
+        form.setValue('pecaId', '', { shouldValidate: true });
         form.setValue('pecaDescricao', 'Peça não encontrada');
         setPecaBuscaError('Nenhuma peça encontrada com este código.');
+        setPecaNaoEncontrada(true);
       }
     } catch (error) {
       console.error('Error searching for peca:', error);
@@ -223,7 +227,7 @@ export default function DevolucaoPage() {
                           <FormControl>
                             <Input 
                               {...field} 
-                              placeholder="Digite o código e saia do campo"
+                              placeholder="Digite o código"
                               onBlur={(e) => {
                                   field.onBlur();
                                   handlePecaSearch(e.target.value);
@@ -235,6 +239,24 @@ export default function DevolucaoPage() {
                       )}
                     />
                  </div>
+                 <QuickAddModal 
+                    trigger={
+                        <Button type="button" size="icon" variant="outline" disabled={!pecaNaoEncontrada}>
+                            <PlusCircle className="h-4 w-4" />
+                        </Button>
+                    }
+                    title="Nova Peça"
+                    description="Cadastre uma nova peça rapidamente."
+                    formComponent={(props: any) => 
+                        <PecasPage 
+                            {...props} 
+                            initialValues={{ codigoPeca: form.watch('pecaCodigo')}} 
+                        />
+                    }
+                    onSaveSuccess={(newItem) => {
+                        handlePecaSearch(form.watch('pecaCodigo'));
+                    }}
+                 />
                  <div className="flex-grow-[7] basis-0">
                     <FormItem>
                       <FormLabel>Descrição da Peça</FormLabel>
@@ -304,7 +326,7 @@ export default function DevolucaoPage() {
                             render={({ field }) => (
                                 <SearchCombobox
                                     key={mecanicoKey}
-                                    collectionName="clientes" // Reusing clientes collection
+                                    collectionName="clientes"
                                     labelField="nomeRazaoSocial"
                                     searchField="nomeRazaoSocial"
                                     placeholder="Selecione o mecânico"

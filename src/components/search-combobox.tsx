@@ -28,12 +28,8 @@ export interface ComboboxOption {
 
 interface SearchComboboxProps {
   collectionName: 'clientes' | 'fornecedores' | 'pecas';
-  labelField: string; // The field to display in the dropdown (e.g., 'nomeRazaoSocial', 'descricao')
-  searchField: string; // The field to order/search by (can be the same as labelField)
-  filter?: {
-    field: string;
-    value: any;
-  };
+  labelField: string | string[];
+  searchField: string;
   placeholder: string;
   emptyMessage: string;
   value: string | null;
@@ -41,11 +37,21 @@ interface SearchComboboxProps {
   className?: string;
 }
 
+const formatLabel = (docData: any, labelField: string | string[]): string => {
+  if (Array.isArray(labelField)) {
+    const parts = labelField.map(field => docData[field]).filter(Boolean);
+    if (parts.length > 1) {
+      return `${parts[0]} - (${parts.slice(1).join(' ')})`;
+    }
+    return parts[0] || '';
+  }
+  return docData[labelField] || '';
+}
+
 export function SearchCombobox({
   collectionName,
   labelField,
   searchField,
-  filter,
   placeholder,
   emptyMessage,
   value,
@@ -66,15 +72,11 @@ export function SearchCombobox({
         orderBy(searchField),
         limit(50)
       );
-
-      // Simple text search (case-insensitive) - Firestore doesn't support this well without 3rd party tools
-      // This will fetch and then filter locally. For larger datasets, a more robust search is needed.
-      // For now, we fetch all active items up to a limit and let the CommandInput handle filtering.
-
+      
       const querySnapshot = await getDocs(q);
       const fetchedOptions = querySnapshot.docs.map((doc) => ({
         value: doc.id,
-        label: doc.data()[labelField],
+        label: formatLabel(doc.data(), labelField),
       }));
       setOptions(fetchedOptions);
     } catch (error) {
@@ -99,7 +101,9 @@ export function SearchCombobox({
           aria-expanded={open}
           className={cn('w-full justify-between', className)}
         >
-          {selectedOption?.label || placeholder}
+          <span className="truncate">
+            {selectedOption?.label || placeholder}
+          </span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -115,7 +119,7 @@ export function SearchCombobox({
                 options.map((option) => (
                   <CommandItem
                     key={option.value}
-                    value={option.label} // Command filters based on this value
+                    value={option.label} 
                     onSelect={() => {
                       onChange(option.value === value ? null : option.value);
                       setOpen(false);
@@ -127,7 +131,7 @@ export function SearchCombobox({
                         value === option.value ? 'opacity-100' : 'opacity-0'
                       )}
                     />
-                    {option.label}
+                    <span className="truncate">{option.label}</span>
                   </CommandItem>
                 ))
               )}
