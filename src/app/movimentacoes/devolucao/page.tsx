@@ -8,11 +8,15 @@ import {
   Timestamp,
   getDoc,
   doc,
+  query,
+  where,
+  getDocs,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { MovimentacaoDevolucao, Peca, Cliente } from '@/types/firestore';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
@@ -45,14 +49,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Undo2, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { SearchCombobox } from '@/components/search-combobox';
 
 const devolucaoSchema = z.object({
-  pecaId: z.string().min(1, 'Selecione uma peça.'),
+  pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
+  pecaCodigo: z.string().min(1, 'Código da Peça é obrigatório.'),
+  pecaDescricao: z.string(),
   quantidade: z.coerce.number().min(1, 'Quantidade deve ser maior que zero.'),
   clienteId: z.string().min(1, 'Selecione um cliente.'),
   mecanicoId: z.string().min(1, 'Selecione um mecânico.'),
@@ -68,11 +74,15 @@ type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 
 export default function DevolucaoPage() {
   const { toast } = useToast();
+  const [pecaBuscaError, setPecaBuscaError] = React.useState('');
+
 
   const form = useForm<DevolucaoFormValues>({
     resolver: zodResolver(devolucaoSchema),
     defaultValues: {
       pecaId: '',
+      pecaCodigo: '',
+      pecaDescricao: '',
       quantidade: 1,
       clienteId: '',
       mecanicoId: '',
@@ -81,29 +91,71 @@ export default function DevolucaoPage() {
     },
   });
 
+  const handlePecaSearch = async (codigoPeca: string) => {
+    if (!codigoPeca) {
+      form.setValue('pecaId', '');
+      form.setValue('pecaDescricao', '');
+      setPecaBuscaError('');
+      return;
+    }
+
+    try {
+      const q = query(
+        collection(db, 'pecas'),
+        where('codigoPeca', '==', codigoPeca),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const pecaDoc = querySnapshot.docs[0];
+        const pecaData = pecaDoc.data() as Peca;
+        form.setValue('pecaId', pecaDoc.id);
+        form.setValue('pecaDescricao', pecaData.descricao);
+        setPecaBuscaError('');
+      } else {
+        form.setValue('pecaId', '');
+        form.setValue('pecaDescricao', 'Peça não encontrada');
+        setPecaBuscaError('Nenhuma peça encontrada com este código.');
+      }
+    } catch (error) {
+      console.error('Error searching for peca:', error);
+      setPecaBuscaError('Erro ao buscar a peça.');
+      toast({
+        title: 'Erro de Busca',
+        description: 'Não foi possível buscar a peça.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   const handleFormSubmit = async (data: DevolucaoFormValues) => {
     try {
-      // Fetch descriptions to store denormalized data
-      const pecaDoc = await getDoc(doc(db, 'pecas', data.pecaId));
       const clienteDoc = await getDoc(doc(db, 'clientes', data.clienteId));
       const mecanicoDoc = await getDoc(doc(db, 'clientes', data.mecanicoId));
 
-      if (!pecaDoc.exists() || !clienteDoc.exists() || !mecanicoDoc.exists()) {
-        throw new Error('Peça, cliente ou mecânico não encontrado.');
+      if (!clienteDoc.exists() || !mecanicoDoc.exists()) {
+        throw new Error('Cliente ou mecânico não encontrado.');
       }
       
-      const pecaData = pecaDoc.data() as Peca;
       const clienteData = clienteDoc.data() as Cliente;
       const mecanicoData = mecanicoDoc.data() as Cliente;
 
       const devolucaoData: Omit<MovimentacaoDevolucao, 'id'> = {
-        ...data,
+        pecaId: data.pecaId,
+        pecaDescricao: data.pecaDescricao,
+        quantidade: data.quantidade,
+        clienteId: data.clienteId,
+        clienteNome: clienteData.nomeRazaoSocial,
+        mecanicoId: data.mecanicoId,
+        mecanicoNome: mecanicoData.nomeRazaoSocial,
+        dataVenda: Timestamp.fromDate(data.dataVenda),
+        requisicaoVenda: data.requisicaoVenda,
+        acaoRequisicao: data.acaoRequisicao,
+        observacao: data.observacao,
         tipoMovimentacao: 'Devolução',
         dataMovimentacao: Timestamp.now(),
-        dataVenda: Timestamp.fromDate(data.dataVenda),
-        pecaDescricao: pecaData.descricao,
-        clienteNome: clienteData.nomeRazaoSocial,
-        mecanicoNome: mecanicoData.nomeRazaoSocial,
       };
 
       await addDoc(collection(db, 'movimentacoes'), devolucaoData);
@@ -150,26 +202,40 @@ export default function DevolucaoPage() {
               onSubmit={form.handleSubmit(handleFormSubmit)}
               className="space-y-6"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="pecaId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Peça</FormLabel>
-                      <SearchCombobox
-                        collectionName="pecas"
-                        labelField="descricao"
-                        searchField="descricao"
-                        placeholder="Selecione a peça"
-                        emptyMessage="Nenhuma peça encontrada."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <FormField
+                    control={form.control}
+                    name="pecaCodigo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código da Peça</FormLabel>
+                        <FormControl>
+                           <Input 
+                            {...field} 
+                            placeholder="Digite o código e saia do campo"
+                            onBlur={(e) => {
+                                field.onBlur();
+                                handlePecaSearch(e.target.value);
+                            }}
+                           />
+                        </FormControl>
+                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormItem>
+                    <FormLabel>Descrição da Peça</FormLabel>
+                     <Controller
+                        control={form.control}
+                        name="pecaDescricao"
+                        render={({ field }) => (
+                           <Input {...field} readOnly placeholder="Descrição será preenchida" />
+                        )}
+                    />
+                    {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
+                  </FormItem>
+              </div>
+
                 <FormField
                   control={form.control}
                   name="quantidade"
@@ -183,47 +249,55 @@ export default function DevolucaoPage() {
                     </FormItem>
                   )}
                 />
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormField
-                  control={form.control}
-                  name="clienteId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Cliente</FormLabel>
-                      <SearchCombobox
-                        collectionName="clientes"
-                        labelField="nomeRazaoSocial"
-                        searchField="nomeRazaoSocial"
-                        placeholder="Selecione o cliente"
-                        emptyMessage="Nenhum cliente encontrado."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="mecanicoId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Mecânico</FormLabel>
-                      <SearchCombobox
-                        collectionName="clientes" // Reusing clientes collection
-                        labelField="nomeRazaoSocial"
-                        searchField="nomeRazaoSocial"
-                        placeholder="Selecione o mecânico"
-                        emptyMessage="Nenhum mecânico encontrado."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                 <FormItem>
+                    <FormLabel>Cliente</FormLabel>
+                    <div className="flex gap-2">
+                        <FormField
+                        control={form.control}
+                        name="clienteId"
+                        render={({ field }) => (
+                            <SearchCombobox
+                                collectionName="clientes"
+                                labelField="nomeRazaoSocial"
+                                searchField="nomeRazaoSocial"
+                                placeholder="Selecione o cliente"
+                                emptyMessage="Nenhum cliente encontrado."
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-full"
+                            />
+                        )}
+                        />
+                         <Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>
+                    </div>
+                    <FormMessage>{form.formState.errors.clienteId?.message}</FormMessage>
+                 </FormItem>
+
+                 <FormItem>
+                    <FormLabel>Mecânico</FormLabel>
+                     <div className="flex gap-2">
+                        <FormField
+                        control={form.control}
+                        name="mecanicoId"
+                        render={({ field }) => (
+                            <SearchCombobox
+                                collectionName="clientes" // Reusing clientes collection
+                                labelField="nomeRazaoSocial"
+                                searchField="nomeRazaoSocial"
+                                placeholder="Selecione o mecânico"
+                                emptyMessage="Nenhum mecânico encontrado."
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-full"
+                            />
+                        )}
+                        />
+                         <Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>
+                    </div>
+                     <FormMessage>{form.formState.errors.mecanicoId?.message}</FormMessage>
+                 </FormItem>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -8,11 +8,15 @@ import {
   Timestamp,
   getDoc,
   doc,
+  query,
+  where,
+  getDocs,
+  limit,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { MovimentacaoGarantia, Peca, Cliente, Fornecedor } from '@/types/firestore';
 import { z } from 'zod';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Card,
@@ -37,7 +41,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, ShieldCheck, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -45,7 +49,9 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { Calendar } from '@/components/ui/calendar';
 
 const garantiaSchema = z.object({
-  pecaId: z.string().min(1, 'Selecione uma peça.'),
+  pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
+  pecaCodigo: z.string().min(1, 'Código da Peça é obrigatório.'),
+  pecaDescricao: z.string(),
   quantidade: z.coerce.number().min(1, 'Quantidade deve ser maior que zero.'),
   clienteId: z.string().min(1, 'Selecione um cliente.'),
   mecanicoId: z.string().min(1, 'Selecione um mecânico.'),
@@ -63,11 +69,14 @@ type GarantiaFormValues = z.infer<typeof garantiaSchema>;
 
 export default function GarantiaPage() {
   const { toast } = useToast();
+  const [pecaBuscaError, setPecaBuscaError] = React.useState('');
 
   const form = useForm<GarantiaFormValues>({
     resolver: zodResolver(garantiaSchema),
     defaultValues: {
       pecaId: '',
+      pecaCodigo: '',
+      pecaDescricao: '',
       quantidade: 1,
       clienteId: '',
       mecanicoId: '',
@@ -81,19 +90,55 @@ export default function GarantiaPage() {
     },
   });
 
+   const handlePecaSearch = async (codigoPeca: string) => {
+    if (!codigoPeca) {
+      form.setValue('pecaId', '');
+      form.setValue('pecaDescricao', '');
+      setPecaBuscaError('');
+      return;
+    }
+
+    try {
+      const q = query(
+        collection(db, 'pecas'),
+        where('codigoPeca', '==', codigoPeca),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        const pecaDoc = querySnapshot.docs[0];
+        const pecaData = pecaDoc.data() as Peca;
+        form.setValue('pecaId', pecaDoc.id);
+        form.setValue('pecaDescricao', pecaData.descricao);
+        setPecaBuscaError('');
+      } else {
+        form.setValue('pecaId', '');
+        form.setValue('pecaDescricao', 'Peça não encontrada');
+        setPecaBuscaError('Nenhuma peça encontrada com este código.');
+      }
+    } catch (error) {
+      console.error('Error searching for peca:', error);
+      setPecaBuscaError('Erro ao buscar a peça.');
+      toast({
+        title: 'Erro de Busca',
+        description: 'Não foi possível buscar a peça.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+
   const handleFormSubmit = async (data: GarantiaFormValues) => {
     try {
-      // Fetch descriptions to store denormalized data
-      const pecaDoc = await getDoc(doc(db, 'pecas', data.pecaId));
       const clienteDoc = await getDoc(doc(db, 'clientes', data.clienteId));
       const mecanicoDoc = await getDoc(doc(db, 'clientes', data.mecanicoId));
       const fornecedorDoc = await getDoc(doc(db, 'fornecedores', data.fornecedorId));
 
-      if (!pecaDoc.exists() || !clienteDoc.exists() || !mecanicoDoc.exists() || !fornecedorDoc.exists()) {
-        throw new Error('Peça, cliente, mecânico ou fornecedor não encontrado.');
+      if (!clienteDoc.exists() || !mecanicoDoc.exists() || !fornecedorDoc.exists()) {
+        throw new Error('Cliente, mecânico ou fornecedor não encontrado.');
       }
       
-      const pecaData = pecaDoc.data() as Peca;
       const clienteData = clienteDoc.data() as Cliente;
       const mecanicoData = mecanicoDoc.data() as Cliente;
       const fornecedorData = fornecedorDoc.data() as Fornecedor;
@@ -105,7 +150,6 @@ export default function GarantiaPage() {
         dataVenda: Timestamp.fromDate(data.dataVenda),
         acaoRetorno: 'Pendente',
         nfRetorno: '', // Starts empty
-        pecaDescricao: pecaData.descricao,
         clienteNome: clienteData.nomeRazaoSocial,
         mecanicoNome: mecanicoData.nomeRazaoSocial,
         fornecedorNome: fornecedorData.razaoSocial,
@@ -154,26 +198,40 @@ export default function GarantiaPage() {
               onSubmit={form.handleSubmit(handleFormSubmit)}
               className="space-y-6"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 <FormField
-                  control={form.control}
-                  name="pecaId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Peça</FormLabel>
-                      <SearchCombobox
-                        collectionName="pecas"
-                        labelField="descricao"
-                        searchField="descricao"
-                        placeholder="Selecione a peça"
-                        emptyMessage="Nenhuma peça encontrada."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                  <FormField
+                    control={form.control}
+                    name="pecaCodigo"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Código da Peça</FormLabel>
+                        <FormControl>
+                           <Input 
+                            {...field} 
+                            placeholder="Digite o código e saia do campo"
+                            onBlur={(e) => {
+                                field.onBlur();
+                                handlePecaSearch(e.target.value);
+                            }}
+                           />
+                        </FormControl>
+                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormItem>
+                    <FormLabel>Descrição da Peça</FormLabel>
+                     <Controller
+                        control={form.control}
+                        name="pecaDescricao"
+                        render={({ field }) => (
+                           <Input {...field} readOnly placeholder="Descrição será preenchida" />
+                        )}
+                    />
+                    {pecaBuscaError && <p className="text-sm font-medium text-destructive">{pecaBuscaError}</p>}
+                  </FormItem>
+              </div>
+
                 <FormField
                   control={form.control}
                   name="quantidade"
@@ -187,68 +245,79 @@ export default function GarantiaPage() {
                     </FormItem>
                   )}
                 />
-              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="clienteId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Cliente</FormLabel>
-                      <SearchCombobox
-                        collectionName="clientes"
-                        labelField="nomeRazaoSocial"
-                        searchField="nomeRazaoSocial"
-                        placeholder="Selecione o cliente"
-                        emptyMessage="Nenhum cliente encontrado."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="mecanicoId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Mecânico</FormLabel>
-                      <SearchCombobox
-                        collectionName="clientes"
-                        labelField="nomeRazaoSocial"
-                        searchField="nomeRazaoSocial"
-                        placeholder="Selecione o mecânico"
-                        emptyMessage="Nenhum mecânico encontrado."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                 <FormItem>
+                    <FormLabel>Cliente</FormLabel>
+                    <div className="flex gap-2">
+                        <FormField
+                        control={form.control}
+                        name="clienteId"
+                        render={({ field }) => (
+                            <SearchCombobox
+                                collectionName="clientes"
+                                labelField="nomeRazaoSocial"
+                                searchField="nomeRazaoSocial"
+                                placeholder="Selecione o cliente"
+                                emptyMessage="Nenhum cliente encontrado."
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-full"
+                            />
+                        )}
+                        />
+                         <Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>
+                    </div>
+                     <FormMessage>{form.formState.errors.clienteId?.message}</FormMessage>
+                 </FormItem>
+                 <FormItem>
+                    <FormLabel>Mecânico</FormLabel>
+                     <div className="flex gap-2">
+                        <FormField
+                        control={form.control}
+                        name="mecanicoId"
+                        render={({ field }) => (
+                            <SearchCombobox
+                                collectionName="clientes"
+                                labelField="nomeRazaoSocial"
+                                searchField="nomeRazaoSocial"
+                                placeholder="Selecione o mecânico"
+                                emptyMessage="Nenhum mecânico encontrado."
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-full"
+                            />
+                        )}
+                        />
+                         <Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>
+                    </div>
+                    <FormMessage>{form.formState.errors.mecanicoId?.message}</FormMessage>
+                 </FormItem>
               </div>
               
-              <FormField
-                  control={form.control}
-                  name="fornecedorId"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel>Fornecedor</FormLabel>
-                      <SearchCombobox
-                        collectionName="fornecedores"
-                        labelField="razaoSocial"
-                        searchField="razaoSocial"
-                        placeholder="Selecione o fornecedor"
-                        emptyMessage="Nenhum fornecedor encontrado."
-                        value={field.value}
-                        onChange={field.onChange}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormItem>
+                <FormLabel>Fornecedor</FormLabel>
+                 <div className="flex gap-2">
+                    <FormField
+                        control={form.control}
+                        name="fornecedorId"
+                        render={({ field }) => (
+                            <SearchCombobox
+                                collectionName="fornecedores"
+                                labelField="razaoSocial"
+                                searchField="razaoSocial"
+                                placeholder="Selecione o fornecedor"
+                                emptyMessage="Nenhum fornecedor encontrado."
+                                value={field.value}
+                                onChange={field.onChange}
+                                className="w-full"
+                            />
+                        )}
+                        />
+                    <Button type="button" size="icon" variant="outline"><PlusCircle className="h-4 w-4" /></Button>
+                </div>
+                <FormMessage>{form.formState.errors.fornecedorId?.message}</FormMessage>
+              </FormItem>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField

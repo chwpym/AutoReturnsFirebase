@@ -17,7 +17,9 @@ import {
   Undo2, 
   Users, 
   Wrench,
-  PanelLeft
+  PanelLeft,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -170,9 +172,17 @@ function AppSidebar() {
 }
 
 function AppHeader() {
+  const { state, toggleSidebar } = useSidebar();
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
-       <SidebarTrigger />
+       <Button
+        variant="ghost"
+        size="icon"
+        onClick={toggleSidebar}
+        className="h-8 w-8"
+       >
+        {state === 'expanded' ? <ArrowLeft /> : <ArrowRight />}
+       </Button>
        <div className="w-full flex-1">
         {/* Breadcrumb can go here */}
        </div>
@@ -185,18 +195,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = React.useState<boolean | undefined>(undefined);
 
   React.useEffect(() => {
+    // This function runs only on the client side
     const getInitialSidebarState = () => {
       const savedState = document.cookie
         .split('; ')
         .find(row => row.startsWith('sidebar_state='))
         ?.split('=')[1];
-      // Default to true (open) if no cookie is found
+      // Default to true (open) if no cookie is found, but only on the client
       return savedState ? savedState === 'true' : true;
     };
     setSidebarOpen(getInitialSidebarState());
   }, []);
 
-  // Render nothing or a loader until the sidebar state is determined
+  // Render a placeholder or nothing until the client-side check is complete
+  // This prevents the hydration mismatch
   if (sidebarOpen === undefined) {
     return null; 
   }
