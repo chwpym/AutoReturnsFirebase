@@ -34,6 +34,7 @@ interface MovimentacaoBase {
   id?: string;
   tipoMovimentacao: 'Devolução' | 'Garantia';
   pecaId: string;
+  pecaCodigo: string; // Denormalized
   pecaDescricao: string; // Denormalized
   quantidade: number;
   clienteId: string;

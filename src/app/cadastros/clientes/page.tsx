@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -104,6 +105,12 @@ type ClienteFormValues = z.infer<typeof clienteSchema>;
 
 const ITEMS_PER_PAGE = 10;
 
+interface ClientePageProps {
+    isModal?: boolean;
+    onSaveSuccess?: (newItem: { value: string; label: string }) => void;
+    onCancel?: () => void;
+}
+
 function ClienteTable({
   clientes,
   onEdit,
@@ -119,8 +126,6 @@ function ClienteTable({
   onReactivate: (id: string) => void;
   isInactive?: boolean;
 }) {
-  const { toast } = useToast();
-
   return (
     <Table>
       <TableHeader>
@@ -238,13 +243,13 @@ function ClienteTable({
   );
 }
 
-export default function ClientesPage() {
+export default function ClientesPage({ isModal = false, onSaveSuccess, onCancel }: ClientePageProps) {
   const { toast } = useToast();
   const [clientesAtivos, setClientesAtivos] = React.useState<Cliente[]>([]);
   const [clientesInativos, setClientesInativos] = React.useState<Cliente[]>([]);
   
   const [editingCliente, setEditingCliente] = React.useState<Cliente | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [isFormOpen, setIsFormOpen] = React.useState(isModal);
   
   const [lastVisibleAtivo, setLastVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [firstVisibleAtivo, setFirstVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -326,10 +331,12 @@ export default function ClientesPage() {
   }, [toast, lastVisibleAtivo, firstVisibleAtivo, lastVisibleInativo, firstVisibleInativo]);
 
   React.useEffect(() => {
-    fetchClientes('Ativo', 'initial');
-    fetchClientes('Inativo', 'initial');
+    if (!isModal) {
+      fetchClientes('Ativo', 'initial');
+      fetchClientes('Inativo', 'initial');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isModal]);
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -353,18 +360,23 @@ export default function ClientesPage() {
           title: 'Sucesso!',
           description: 'Cliente atualizado com sucesso.',
         });
+        if (onSaveSuccess) onSaveSuccess({ value: editingCliente.id!, label: data.nomeRazaoSocial });
       } else {
-        await addDoc(collection(db, 'clientes'), data);
+        const docRef = await addDoc(collection(db, 'clientes'), data);
         toast({
           title: 'Sucesso!',
           description: 'Cliente cadastrado com sucesso.',
         });
+         if (onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.nomeRazaoSocial });
       }
-      form.reset();
-      setEditingCliente(null);
-      setIsFormOpen(false);
-      fetchClientes('Ativo', 'initial');
-      fetchClientes('Inativo', 'initial');
+
+      if (!isModal) {
+        form.reset();
+        setEditingCliente(null);
+        setIsFormOpen(false);
+        fetchClientes('Ativo', 'initial');
+        fetchClientes('Inativo', 'initial');
+      }
     } catch (error) {
       console.error('Error saving cliente:', error);
       toast({
@@ -395,9 +407,13 @@ export default function ClientesPage() {
   }
 
   const handleCancel = () => {
-    setEditingCliente(null);
-    form.reset();
-    setIsFormOpen(false);
+    if (isModal && onCancel) {
+        onCancel();
+    } else {
+        setEditingCliente(null);
+        form.reset();
+        setIsFormOpen(false);
+    }
   };
 
   const handleStatusChange = async (id: string, status: 'Ativo' | 'Inativo') => {
@@ -445,31 +461,35 @@ export default function ClientesPage() {
 
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Cadastro de Clientes/Mecânicos
-          </h1>
-          <p className="text-muted-foreground">
-            Gerencie seus clientes e mecânicos.
-          </p>
+    <div className={cn(!isModal && "space-y-6")}>
+      {!isModal && (
+        <div className="flex items-center justify-between">
+            <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+                Cadastro de Clientes/Mecânicos
+            </h1>
+            <p className="text-muted-foreground">
+                Gerencie seus clientes e mecânicos.
+            </p>
+            </div>
+            {!isFormOpen && (
+                <Button onClick={handleNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Novo Cliente
+                </Button>
+            )}
         </div>
-        {!isFormOpen && (
-            <Button onClick={handleNew}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Novo Cliente
-            </Button>
-        )}
-      </div>
+      )}
 
       {isFormOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingCliente ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
-            <CardDescription>Preencha os dados do cliente.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card className={cn(isModal && "border-0 shadow-none")}>
+          {!isModal && (
+            <CardHeader>
+                <CardTitle>{editingCliente ? 'Editar Cliente' : 'Novo Cliente'}</CardTitle>
+                <CardDescription>Preencha os dados do cliente.</CardDescription>
+            </CardHeader>
+          )}
+          <CardContent className={cn(isModal && "p-0")}>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -576,93 +596,95 @@ export default function ClientesPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="ativos">
-        <TabsList>
-            <TabsTrigger value="ativos">Ativos</TabsTrigger>
-            <TabsTrigger value="inativos">Inativos</TabsTrigger>
-        </TabsList>
-        <TabsContent value="ativos">
-            <Card>
-                <CardHeader>
-                <CardTitle>Clientes Ativos</CardTitle>
-                <CardDescription>Lista de clientes e mecânicos ativos.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <ClienteTable 
-                        clientes={clientesAtivos}
-                        onEdit={handleEdit}
-                        onInactivate={(id) => handleStatusChange(id, 'Inativo')}
-                        onDelete={handleDelete}
-                        onReactivate={(id) => handleStatusChange(id, 'Ativo')}
-                    />
-                </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                        Página {currentPageAtivo} de {Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
-                    </span>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Ativo', 'prev')}
-                            disabled={currentPageAtivo === 1}
-                        >
-                            <ChevronsLeft className="h-4 w-4" />
-                            Anterior
-                        </Button>
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Ativo', 'next')}
-                            disabled={currentPageAtivo === Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
-                        >
-                            Próximo
-                            <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-        </TabsContent>
-        <TabsContent value="inativos">
-             <Card>
-                <CardHeader>
-                <CardTitle>Clientes Inativos</CardTitle>
-                <CardDescription>Lista de clientes e mecânicos inativos.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <ClienteTable 
-                        clientes={clientesInativos}
-                        onEdit={handleEdit}
-                        onInactivate={(id) => handleStatusChange(id, 'Inativo')}
-                        onDelete={handleDelete}
-                        onReactivate={(id) => handleStatusChange(id, 'Ativo')}
-                        isInactive
-                    />
-                </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                        Página {currentPageInativo} de {Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
-                    </span>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Inativo', 'prev')}
-                            disabled={currentPageInativo === 1}
-                        >
-                            <ChevronsLeft className="h-4 w-4" />
-                            Anterior
-                        </Button>
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Inativo', 'next')}
-                            disabled={currentPageInativo === Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
-                        >
-                            Próximo
-                            <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-        </TabsContent>
-      </Tabs>
+      {!isModal && (
+        <Tabs defaultValue="ativos">
+            <TabsList>
+                <TabsTrigger value="ativos">Ativos</TabsTrigger>
+                <TabsTrigger value="inativos">Inativos</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ativos">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Clientes Ativos</CardTitle>
+                    <CardDescription>Lista de clientes e mecânicos ativos.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ClienteTable 
+                            clientes={clientesAtivos}
+                            onEdit={handleEdit}
+                            onInactivate={(id) => handleStatusChange(id, 'Inativo')}
+                            onDelete={handleDelete}
+                            onReactivate={(id) => handleStatusChange(id, 'Ativo')}
+                        />
+                    </CardContent>
+                    <CardFooter className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPageAtivo} de {Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Ativo', 'prev')}
+                                disabled={currentPageAtivo === 1}
+                            >
+                                <ChevronsLeft className="h-4 w-4" />
+                                Anterior
+                            </Button>
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Ativo', 'next')}
+                                disabled={currentPageAtivo === Math.ceil(totalClientesAtivos / ITEMS_PER_PAGE)}
+                            >
+                                Próximo
+                                <ChevronsRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            <TabsContent value="inativos">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Clientes Inativos</CardTitle>
+                    <CardDescription>Lista de clientes e mecânicos inativos.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ClienteTable 
+                            clientes={clientesInativos}
+                            onEdit={handleEdit}
+                            onInactivate={(id) => handleStatusChange(id, 'Inativo')}
+                            onDelete={handleDelete}
+                            onReactivate={(id) => handleStatusChange(id, 'Ativo')}
+                            isInactive
+                        />
+                    </CardContent>
+                    <CardFooter className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPageInativo} de {Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Inativo', 'prev')}
+                                disabled={currentPageInativo === 1}
+                            >
+                                <ChevronsLeft className="h-4 w-4" />
+                                Anterior
+                            </Button>
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Inativo', 'next')}
+                                disabled={currentPageInativo === Math.ceil(totalClientesInativos / ITEMS_PER_PAGE)}
+                            >
+                                Próximo
+                                <ChevronsRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

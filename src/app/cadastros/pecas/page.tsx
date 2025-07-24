@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -81,6 +82,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 const pecaSchema = z.object({
   codigoPeca: z.string().min(1, 'Código da Peça é obrigatório.'),
@@ -93,6 +95,12 @@ type PecaFormValues = z.infer<typeof pecaSchema>;
 
 const ITEMS_PER_PAGE = 10;
 
+interface PecasPageProps {
+    isModal?: boolean;
+    onSaveSuccess?: (newItem: { value: string; label: string }) => void;
+    onCancel?: () => void;
+    initialValues?: Partial<PecaFormValues>;
+}
 
 function PecaTable({
   pecas,
@@ -211,12 +219,12 @@ function PecaTable({
   )
 }
 
-export default function PecasPage() {
+export default function PecasPage({ isModal = false, onSaveSuccess, onCancel, initialValues = {} }: PecasPageProps) {
   const { toast } = useToast();
   const [pecasAtivas, setPecasAtivas] = React.useState<Peca[]>([]);
   const [pecasInativas, setPecasInativas] = React.useState<Peca[]>([]);
   const [editingPeca, setEditingPeca] = React.useState<Peca | null>(null);
-  const [isFormOpen, setIsFormOpen] = React.useState(false);
+  const [isFormOpen, setIsFormOpen] = React.useState(isModal);
 
   const [lastVisibleAtivo, setLastVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
   const [firstVisibleAtivo, setFirstVisibleAtivo] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
@@ -235,6 +243,7 @@ export default function PecasPage() {
       descricao: '',
       status: 'Ativo',
       observacao: '',
+      ...initialValues,
     },
   });
 
@@ -297,10 +306,12 @@ export default function PecasPage() {
   }, [toast, lastVisibleAtivo, firstVisibleAtivo, lastVisibleInativo, firstVisibleInativo]);
 
   React.useEffect(() => {
-    fetchPecas('Ativo', 'initial');
-    fetchPecas('Inativo', 'initial');
+    if (!isModal) {
+        fetchPecas('Ativo', 'initial');
+        fetchPecas('Inativo', 'initial');
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isModal]);
 
   const handlePagination = (status: 'Ativo' | 'Inativo', direction: 'next' | 'prev') => {
     if (status === 'Ativo') {
@@ -324,18 +335,23 @@ export default function PecasPage() {
           title: 'Sucesso!',
           description: 'Peça atualizada com sucesso.',
         });
+        if (onSaveSuccess) onSaveSuccess({ value: editingPeca.id!, label: data.descricao });
       } else {
-        await addDoc(collection(db, 'pecas'), data);
+        const docRef = await addDoc(collection(db, 'pecas'), data);
         toast({
           title: 'Sucesso!',
           description: 'Peça cadastrada com sucesso.',
         });
+        if (onSaveSuccess) onSaveSuccess({ value: docRef.id, label: data.descricao });
       }
-      form.reset();
-      setEditingPeca(null);
-      setIsFormOpen(false);
-      fetchPecas('Ativo', 'initial');
-      fetchPecas('Inativo', 'initial');
+
+      if (!isModal) {
+        form.reset();
+        setEditingPeca(null);
+        setIsFormOpen(false);
+        fetchPecas('Ativo', 'initial');
+        fetchPecas('Inativo', 'initial');
+      }
     } catch (error) {
       console.error('Error saving peca:', error);
       toast({
@@ -365,9 +381,13 @@ export default function PecasPage() {
   }
 
   const handleCancel = () => {
-    setEditingPeca(null);
-    form.reset();
-    setIsFormOpen(false);
+    if (isModal && onCancel) {
+        onCancel();
+    } else {
+        setEditingPeca(null);
+        form.reset();
+        setIsFormOpen(false);
+    }
   };
   
   const handleStatusChange = async (id: string, status: 'Ativo' | 'Inativo') => {
@@ -414,7 +434,8 @@ export default function PecasPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className={cn(!isModal && "space-y-6")}>
+      {!isModal && (
        <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Cadastro de Peças</h1>
@@ -427,14 +448,17 @@ export default function PecasPage() {
             </Button>
         )}
       </div>
+      )}
 
       {isFormOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingPeca ? 'Editar Peça' : 'Nova Peça'}</CardTitle>
-            <CardDescription>Preencha os dados da peça.</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card className={cn(isModal && "border-0 shadow-none")}>
+          {!isModal && (
+            <CardHeader>
+                <CardTitle>{editingPeca ? 'Editar Peça' : 'Nova Peça'}</CardTitle>
+                <CardDescription>Preencha os dados da peça.</CardDescription>
+            </CardHeader>
+          )}
+          <CardContent className={cn(isModal && "p-0")}>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -494,94 +518,95 @@ export default function PecasPage() {
         </Card>
       )}
 
-      <Tabs defaultValue="ativos">
-        <TabsList>
-            <TabsTrigger value="ativos">Ativas</TabsTrigger>
-            <TabsTrigger value="inativos">Inativas</TabsTrigger>
-        </TabsList>
-        <TabsContent value="ativos">
-            <Card>
-                <CardHeader>
-                <CardTitle>Peças Ativas</CardTitle>
-                <CardDescription>Lista de peças ativas no inventário.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <PecaTable 
-                        pecas={pecasAtivas}
-                        onEdit={handleEdit}
-                        onInactivate={(id) => handleStatusChange(id, 'Inativo')}
-                        onDelete={handleDelete}
-                        onReactivate={(id) => handleStatusChange(id, 'Ativo')}
-                    />
-                </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                         Página {currentPageAtivo} de {Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
-                    </span>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Ativo', 'prev')}
-                            disabled={currentPageAtivo === 1}
-                        >
-                            <ChevronsLeft className="h-4 w-4" />
-                            Anterior
-                        </Button>
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Ativo', 'next')}
-                            disabled={currentPageAtivo === Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
-                        >
-                            Próximo
-                            <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-        </TabsContent>
-        <TabsContent value="inativos">
-             <Card>
-                <CardHeader>
-                <CardTitle>Peças Inativas</CardTitle>
-                <CardDescription>Lista de peças inativas no inventário.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                     <PecaTable 
-                        pecas={pecasInativas}
-                        onEdit={handleEdit}
-                        onInactivate={(id) => handleStatusChange(id, 'Inativo')}
-                        onDelete={handleDelete}
-                        onReactivate={(id) => handleStatusChange(id, 'Ativo')}
-                        isInactive
-                    />
-                </CardContent>
-                 <CardFooter className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">
-                        Página {currentPageInativo} de {Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
-                    </span>
-                    <div className="flex gap-2">
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Inativo', 'prev')}
-                            disabled={currentPageInativo === 1}
-                        >
-                            <ChevronsLeft className="h-4 w-4" />
-                            Anterior
-                        </Button>
-                        <Button 
-                            variant="outline"
-                            onClick={() => handlePagination('Inativo', 'next')}
-                            disabled={currentPageInativo === Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
-                        >
-                            Próximo
-                            <ChevronsRight className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </CardFooter>
-            </Card>
-        </TabsContent>
-      </Tabs>
-
+      {!isModal && (
+        <Tabs defaultValue="ativos">
+            <TabsList>
+                <TabsTrigger value="ativos">Ativas</TabsTrigger>
+                <TabsTrigger value="inativos">Inativas</TabsTrigger>
+            </TabsList>
+            <TabsContent value="ativos">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Peças Ativas</CardTitle>
+                    <CardDescription>Lista de peças ativas no inventário.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <PecaTable 
+                            pecas={pecasAtivas}
+                            onEdit={handleEdit}
+                            onInactivate={(id) => handleStatusChange(id, 'Inativo')}
+                            onDelete={handleDelete}
+                            onReactivate={(id) => handleStatusChange(id, 'Ativo')}
+                        />
+                    </CardContent>
+                    <CardFooter className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPageAtivo} de {Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Ativo', 'prev')}
+                                disabled={currentPageAtivo === 1}
+                            >
+                                <ChevronsLeft className="h-4 w-4" />
+                                Anterior
+                            </Button>
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Ativo', 'next')}
+                                disabled={currentPageAtivo === Math.ceil(totalPecasAtivas / ITEMS_PER_PAGE)}
+                            >
+                                Próximo
+                                <ChevronsRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+            <TabsContent value="inativos">
+                <Card>
+                    <CardHeader>
+                    <CardTitle>Peças Inativas</CardTitle>
+                    <CardDescription>Lista de peças inativas no inventário.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <PecaTable 
+                            pecas={pecasInativas}
+                            onEdit={handleEdit}
+                            onInactivate={(id) => handleStatusChange(id, 'Inativo')}
+                            onDelete={handleDelete}
+                            onReactivate={(id) => handleStatusChange(id, 'Ativo')}
+                            isInactive
+                        />
+                    </CardContent>
+                    <CardFooter className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">
+                            Página {currentPageInativo} de {Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Inativo', 'prev')}
+                                disabled={currentPageInativo === 1}
+                            >
+                                <ChevronsLeft className="h-4 w-4" />
+                                Anterior
+                            </Button>
+                            <Button 
+                                variant="outline"
+                                onClick={() => handlePagination('Inativo', 'next')}
+                                disabled={currentPageInativo === Math.ceil(totalPecasInativas / ITEMS_PER_PAGE)}
+                            >
+                                Próximo
+                                <ChevronsRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </CardFooter>
+                </Card>
+            </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }
