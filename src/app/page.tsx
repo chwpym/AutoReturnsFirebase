@@ -70,9 +70,9 @@ export default function DashboardPage() {
       <section>
         <h2 className="text-xl font-semibold tracking-tight mb-4">Indicadores</h2>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard title="Devoluções no Mês" value="12" icon={Package} colorClass="text-success-600" />
-          <StatCard title="Garantias Pendentes" value="3" icon={ShieldCheck} colorClass="text-warning-500" />
-          <StatCard title="Clientes Ativos" value="124" icon={Users} colorClass="text-info-500" />
+          <StatCard title="Devoluções no Mês" value="12" icon={Package} colorClass="text-accent" />
+          <StatCard title="Garantias Pendentes" value="3" icon={ShieldCheck} colorClass="text-warning" />
+          <StatCard title="Clientes Ativos" value="124" icon={Users} colorClass="text-info" />
           <StatCard title="Peças Distintas" value="842" icon={Wrench} colorClass="text-primary" />
         </div>
       </section>
