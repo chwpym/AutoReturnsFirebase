@@ -10,11 +10,13 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Package, ShieldCheck, History, Users, Wrench, Loader2 } from 'lucide-react';
+import { ArrowRight, Package, ShieldCheck, History, Users, Wrench } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useDashboardStats } from '@/hooks/useDashboardStats';
 import { Skeleton } from '@/components/ui/skeleton';
-
+import { useQuery } from '@tanstack/react-query';
+import { collection, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useToast } from '@/hooks/use-toast';
 
 interface StatCardProps {
   title: string;
@@ -71,8 +73,76 @@ function QuickAccessCard({ title, href, icon: Icon }: QuickAccessCardProps) {
   )
 }
 
+// Query Functions
+const fetchDevolucoesMes = async () => {
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where('tipoMovimentacao', '==', 'Devolução'),
+        where('dataMovimentacao', '>=', Timestamp.fromDate(startOfMonth)),
+        where('dataMovimentacao', '<=', Timestamp.fromDate(endOfMonth))
+    );
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+};
+
+const fetchGarantiasPendentes = async () => {
+    const q = query(
+        collection(db, 'movimentacoes'),
+        where('tipoMovimentacao', '==', 'Garantia'),
+        where('acaoRetorno', '==', 'Pendente')
+    );
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+};
+
+const fetchClientesAtivos = async () => {
+    const q = query(collection(db, 'clientes'), where('status', '==', 'Ativo'));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+};
+
+const fetchPecasAtivas = async () => {
+    const q = query(collection(db, 'pecas'), where('status', '==', 'Ativo'));
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
+};
+
+
 export default function DashboardPage() {
-    const { stats, loading } = useDashboardStats();
+    const { toast } = useToast();
+
+    const { data: devolucoesMes, isLoading: isLoadingDevolucoes, isError: isErrorDevolucoes } = useQuery({
+        queryKey: ['dashboardDevolucoesMes'],
+        queryFn: fetchDevolucoesMes,
+    });
+
+    const { data: garantiasPendentes, isLoading: isLoadingGarantias, isError: isErrorGarantias } = useQuery({
+        queryKey: ['dashboardGarantiasPendentes'],
+        queryFn: fetchGarantiasPendentes,
+    });
+
+    const { data: clientesAtivos, isLoading: isLoadingClientes, isError: isErrorClientes } = useQuery({
+        queryKey: ['dashboardClientesAtivos'],
+        queryFn: fetchClientesAtivos,
+    });
+
+    const { data: pecasAtivas, isLoading: isLoadingPecas, isError: isErrorPecas } = useQuery({
+        queryKey: ['dashboardPecasAtivas'],
+        queryFn: fetchPecasAtivas,
+    });
+    
+    React.useEffect(() => {
+        if(isErrorDevolucoes || isErrorGarantias || isErrorClientes || isErrorPecas) {
+            toast({
+                title: 'Erro ao carregar dashboard',
+                description: 'Não foi possível buscar os indicadores.',
+                variant: 'destructive',
+            });
+        }
+    }, [isErrorDevolucoes, isErrorGarantias, isErrorClientes, isErrorPecas, toast]);
 
   return (
     <div className="flex flex-col gap-8">
@@ -86,31 +156,31 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <StatCard 
             title="Devoluções no Mês" 
-            value={stats.devolucoesMes} 
+            value={devolucoesMes ?? 0} 
             icon={Package} 
             colorClass="text-accent" 
-            loading={loading}
+            loading={isLoadingDevolucoes}
           />
           <StatCard 
             title="Garantias Pendentes" 
-            value={stats.garantiasPendentes} 
+            value={garantiasPendentes ?? 0} 
             icon={ShieldCheck} 
             colorClass="text-warning"
-            loading={loading} 
+            loading={isLoadingGarantias} 
           />
           <StatCard 
             title="Clientes Ativos" 
-            value={stats.clientesAtivos} 
+            value={clientesAtivos ?? 0}
             icon={Users} 
             colorClass="text-info" 
-            loading={loading}
+            loading={isLoadingClientes}
           />
           <StatCard 
             title="Peças Ativas" 
-            value={stats.pecasAtivas} 
+            value={pecasAtivas ?? 0} 
             icon={Wrench} 
             colorClass="text-primary" 
-            loading={loading}
+            loading={isLoadingPecas}
           />
         </div>
       </section>

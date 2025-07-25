@@ -7,16 +7,9 @@ import {
   query,
   where,
   orderBy,
-  limit,
   getDocs,
-  startAfter,
-  endBefore,
-  limitToLast,
-  Query,
-  DocumentData,
   Timestamp,
   QueryConstraint,
-  QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Movimentacao, MovimentacaoGarantia } from '@/types/firestore';
@@ -57,11 +50,10 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, ChevronsLeft, ChevronsRight, Loader2 } from 'lucide-react';
+import { CalendarIcon, Search, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-
-const ITEMS_PER_PAGE = 15;
+import { useQuery } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
     switch (status) {
@@ -76,111 +68,85 @@ const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
     }
 }
 
+interface Filters {
+    tipoMovimentacao: string;
+    statusGarantia: string;
+    dataInicio?: Date;
+    dataFim?: Date;
+    clienteId?: string | null;
+    codigoPeca: string;
+}
+
+const fetchMovimentacoes = async (filters: Filters) => {
+    const collectionRef = collection(db, 'movimentacoes');
+    const constraints: QueryConstraint[] = [];
+
+    if (filters.tipoMovimentacao !== 'Todas') {
+      constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
+    }
+    if (filters.statusGarantia !== 'Todos' && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
+      constraints.push(where('acaoRetorno', '==', filters.statusGarantia));
+    }
+    if (filters.dataInicio) {
+      constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
+    }
+    if (filters.dataFim) {
+      const endOfDay = new Date(filters.dataFim);
+      endOfDay.setHours(23, 59, 59, 999);
+      constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
+    }
+    if (filters.clienteId) {
+      constraints.push(where('clienteId', '==', filters.clienteId));
+    }
+    if (filters.codigoPeca) {
+      constraints.push(where('pecaCodigo', '==', filters.codigoPeca));
+    }
+
+    const q = query(collectionRef, ...constraints, orderBy('dataMovimentacao', 'desc'));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimentacao));
+}
+
+
 export default function ConsultasPage() {
   const { toast } = useToast();
   
-  // Filter States
-  const [tipoMovimentacao, setTipoMovimentacao] = React.useState('Todas');
-  const [statusGarantia, setStatusGarantia] = React.useState('Todos');
-  const [dataInicio, setDataInicio] = React.useState<Date | undefined>();
-  const [dataFim, setDataFim] = React.useState<Date | undefined>();
-  const [clienteId, setClienteId] = React.useState<string | null>(null);
-  const [codigoPeca, setCodigoPeca] = React.useState('');
-  
-  // Search Results
-  const [movimentacoes, setMovimentacoes] = React.useState<Movimentacao[]>([]);
-  const [loading, setLoading] = React.useState(false);
+  const [filters, setFilters] = React.useState<Filters>({
+    tipoMovimentacao: 'Todas',
+    statusGarantia: 'Todos',
+    dataInicio: undefined,
+    dataFim: undefined,
+    clienteId: null,
+    codigoPeca: '',
+  });
 
-  // Pagination
-  const [lastVisible, setLastVisible] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [firstVisible, setFirstVisible] = React.useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const [hasSearched, setHasSearched] = React.useState(false);
+  const [submittedFilters, setSubmittedFilters] = React.useState<Filters | null>(null);
 
+  const { data: movimentacoes, isLoading, isError, isFetching } = useQuery({
+      queryKey: ['movimentacoes', submittedFilters],
+      queryFn: () => fetchMovimentacoes(submittedFilters!),
+      enabled: !!submittedFilters, // Only run the query if filters have been submitted
+  });
 
-  const fetchMovimentacoes = React.useCallback(async (direction: 'next' | 'prev' | 'initial' = 'initial') => {
-    setLoading(true);
-    setHasSearched(true);
-    try {
-      const collectionRef = collection(db, 'movimentacoes');
-      const constraints: QueryConstraint[] = [];
-
-      // Build query based on filters
-      if (tipoMovimentacao !== 'Todas') {
-        constraints.push(where('tipoMovimentacao', '==', tipoMovimentacao));
-      }
-      if (statusGarantia !== 'Todos' && (tipoMovimentacao === 'Garantia' || tipoMovimentacao === 'Todas')) {
-        constraints.push(where('acaoRetorno', '==', statusGarantia));
-      }
-      if (dataInicio) {
-        constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(dataInicio)));
-      }
-      if (dataFim) {
-        const endOfDay = new Date(dataFim);
-        endOfDay.setHours(23, 59, 59, 999);
-        constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
-      }
-      if (clienteId) {
-        constraints.push(where('clienteId', '==', clienteId));
-      }
-      if (codigoPeca) {
-        constraints.push(where('pecaCodigo', '==', codigoPeca));
-      }
-
-      let q: Query<DocumentData>;
-      const baseQuery = query(collectionRef, ...constraints, orderBy('dataMovimentacao', 'desc'));
-
-      if (direction === 'initial') {
-        q = query(baseQuery, limit(ITEMS_PER_PAGE));
-      } else if (direction === 'next' && lastVisible) {
-        q = query(baseQuery, startAfter(lastVisible), limit(ITEMS_PER_PAGE));
-      } else if (direction === 'prev' && firstVisible) {
-        q = query(baseQuery, endBefore(firstVisible), limitToLast(ITEMS_PER_PAGE));
-      } else {
-        q = query(baseQuery, limit(ITEMS_PER_PAGE));
-      }
-      
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimentacao));
-      
-      setMovimentacoes(data);
-
-      if(querySnapshot.docs.length > 0) {
-        setFirstVisible(querySnapshot.docs[0]);
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1]);
-      } else {
-        setFirstVisible(null);
-        setLastVisible(null);
-        if (direction !== 'initial') {
-             toast({ title: "Fim dos Resultados", description: "Não há mais registros para exibir." });
-        }
-      }
-
-    } catch (error) {
-      console.error("Error fetching movimentacoes: ", error);
+   React.useEffect(() => {
+    if (isError) {
       toast({
         title: 'Erro ao buscar dados',
         description: 'Não foi possível realizar a consulta. Verifique os filtros e tente novamente.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
-  }, [tipoMovimentacao, statusGarantia, dataInicio, dataFim, clienteId, codigoPeca, toast, lastVisible, firstVisible]);
+  }, [isError, toast]);
 
+  const handleFilterChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
+      setFilters(prev => ({...prev, [key]: value}));
+  };
 
   const handleSearch = () => {
-    setCurrentPage(1);
-    setFirstVisible(null);
-    setLastVisible(null);
-    fetchMovimentacoes('initial');
+    setSubmittedFilters(filters);
   }
 
-  const handlePagination = (direction: 'next' | 'prev') => {
-    const newPage = direction === 'next' ? currentPage + 1 : currentPage - 1;
-    setCurrentPage(newPage > 0 ? newPage : 1);
-    fetchMovimentacoes(direction);
-  }
+  const isLoadingData = isLoading || isFetching;
 
   return (
     <div className="space-y-6">
@@ -191,10 +157,9 @@ export default function ConsultasPage() {
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Tipo Movimentação */}
                 <div className="space-y-2">
                     <Label>Tipo de Movimentação</Label>
-                    <Select value={tipoMovimentacao} onValueChange={setTipoMovimentacao}>
+                    <Select value={filters.tipoMovimentacao} onValueChange={(v) => handleFilterChange('tipoMovimentacao', v)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Todas">Todas</SelectItem>
@@ -203,11 +168,10 @@ export default function ConsultasPage() {
                         </SelectContent>
                     </Select>
                 </div>
-                {/* Status Garantia */}
-                {(tipoMovimentacao === 'Garantia' || tipoMovimentacao === 'Todas') && (
+                {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
                     <div className="space-y-2">
                          <Label>Status da Garantia</Label>
-                        <Select value={statusGarantia} onValueChange={setStatusGarantia}>
+                        <Select value={filters.statusGarantia} onValueChange={(v) => handleFilterChange('statusGarantia', v)}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="Todos">Todos</SelectItem>
@@ -218,39 +182,34 @@ export default function ConsultasPage() {
                         </Select>
                     </div>
                 )}
-                 {/* Código Peça */}
                 <div className="space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={codigoPeca} onChange={(e) => setCodigoPeca(e.target.value)} placeholder="Ex: FRAS-LE123"/>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
                 </div>
-
-                {/* Datas */}
                 <div className="space-y-2">
                     <Label>Data de Início</Label>
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataInicio && "text-muted-foreground")}>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filters.dataInicio && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dataInicio ? format(dataInicio, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
+                                {filters.dataInicio ? format(filters.dataInicio, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dataInicio} onSelect={setDataInicio} initialFocus /></PopoverContent>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dataInicio} onSelect={(d) => handleFilterChange('dataInicio', d)} initialFocus /></PopoverContent>
                     </Popover>
                 </div>
                 <div className="space-y-2">
                      <Label>Data de Fim</Label>
                      <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !dataFim && "text-muted-foreground")}>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !filters.dataFim && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dataFim ? format(dataFim, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
+                                {filters.dataFim ? format(filters.dataFim, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus /></PopoverContent>
+                        <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dataFim} onSelect={(d) => handleFilterChange('dataFim', d)} initialFocus /></PopoverContent>
                     </Popover>
                 </div>
-
-                {/* Cliente */}
                 <div className="space-y-2">
                     <Label>Cliente</Label>
                      <SearchCombobox
@@ -259,22 +218,22 @@ export default function ConsultasPage() {
                         searchField="nomeRazaoSocial"
                         placeholder="Buscar cliente..."
                         emptyMessage="Nenhum cliente encontrado."
-                        value={clienteId}
-                        onChange={setClienteId}
+                        value={filters.clienteId ?? null}
+                        onChange={(v) => handleFilterChange('clienteId', v)}
                         className="w-full"
                     />
                 </div>
             </div>
         </CardContent>
         <CardFooter>
-            <Button onClick={handleSearch} disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+            <Button onClick={handleSearch} disabled={isLoadingData}>
+                {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 Filtrar
             </Button>
         </CardFooter>
       </Card>
       
-      {hasSearched && (
+      {submittedFilters && (
         <Card>
             <CardHeader>
                 <CardTitle>Resultados da Busca</CardTitle>
@@ -291,9 +250,17 @@ export default function ConsultasPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {loading ? (
-                            <TableRow><TableCell colSpan={5} className="h-24 text-center"><Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" /></TableCell></TableRow>
-                        ) : movimentacoes.length > 0 ? (
+                        {isLoadingData ? (
+                            Array.from({ length: 5 }).map((_, i) => (
+                               <TableRow key={i}>
+                                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                               </TableRow>
+                            ))
+                        ) : movimentacoes && movimentacoes.length > 0 ? (
                             movimentacoes.map(mov => (
                                 <TableRow key={mov.id}>
                                     <TableCell>{format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
@@ -302,8 +269,8 @@ export default function ConsultasPage() {
                                     <TableCell>{mov.clienteNome}</TableCell>
                                     <TableCell>
                                         {mov.tipoMovimentacao === 'Garantia' ? (
-                                            <Badge variant={getStatusVariant(mov.acaoRetorno)}>
-                                                {mov.acaoRetorno}
+                                            <Badge variant={getStatusVariant((mov as MovimentacaoGarantia).acaoRetorno)}>
+                                                {(mov as MovimentacaoGarantia).acaoRetorno}
                                             </Badge>
                                         ) : (
                                             '-'
@@ -319,27 +286,9 @@ export default function ConsultasPage() {
             </CardContent>
              <CardFooter className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">
-                    Página {currentPage}
+                    {movimentacoes ? `${movimentacoes.length} resultado(s)` : ''}
                 </span>
-                <div className="flex gap-2">
-                    <Button 
-                        variant="outline"
-                        onClick={() => handlePagination('prev')}
-                        disabled={currentPage === 1 || loading}
-                    >
-                        <ChevronsLeft className="h-4 w-4" />
-                        Anterior
-                    </Button>
-                    <Button 
-                        variant="outline"
-                        onClick={() => handlePagination('next')}
-                        disabled={movimentacoes.length < ITEMS_PER_PAGE || loading}
-                    >
-                        Próximo
-                        <ChevronsRight className="h-4 w-4" />
-                    </Button>
-                </div>
-            </CardFooter>
+             </CardFooter>
         </Card>
       )}
     </div>

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '@/lib/utils';
+import { QueryProvider } from './query-provider';
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -44,53 +45,55 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className={cn("app-container", isCollapsed && "menu-recolhido")}>
-      <aside className="sidebar">
-        <div className="sidebar-header">
-           <div className="flex items-center gap-2">
-             <Car className="h-8 w-8 text-primary" />
-             <span className="sidebar-logo-text font-semibold tracking-tight text-lg">AutoReturns</span>
-           </div>
-        </div>
-
-        <nav className="sidebar-nav">
-          {menuItems.map((item, index) => (
-            <div key={index} className="nav-group">
-              {item.isGroup ? (
-                <>
-                  <span className="nav-group-label">{item.label}</span>
-                  {item.items?.map(subItem => (
-                     <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
-                        <subItem.icon className="nav-item-icon" />
-                        <span className="nav-item-text">{subItem.label}</span>
-                    </Link>
-                  ))}
-                </>
-              ) : (
-                 <Link href={item.href || '#'} className={cn("nav-item", pathname === item.href && "active")}>
-                    <item.icon className="nav-item-icon" />
-                    <span className="nav-item-text">{item.label}</span>
-                </Link>
-              )}
+    <QueryProvider>
+        <div className={cn("app-container", isCollapsed && "menu-recolhido")}>
+        <aside className="sidebar">
+            <div className="sidebar-header">
+            <div className="flex items-center gap-2">
+                <Car className="h-8 w-8 text-primary" />
+                <span className="sidebar-logo-text font-semibold tracking-tight text-lg">AutoReturns</span>
             </div>
-          ))}
-        </nav>
-        
-        <div className="sidebar-footer">
-            <ThemeToggle />
-        </div>
+            </div>
 
-      </aside>
-      <main className="main-content">
-        <header className="main-header">
-          <button onClick={toggleSidebar} className="sidebar-toggle-button">
-            {isCollapsed ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
-          </button>
-        </header>
-        <div className="content-area">
-          {children}
+            <nav className="sidebar-nav">
+            {menuItems.map((item, index) => (
+                <div key={index} className="nav-group">
+                {item.isGroup ? (
+                    <>
+                    <span className="nav-group-label">{item.label}</span>
+                    {item.items?.map(subItem => (
+                        <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
+                            <subItem.icon className="nav-item-icon" />
+                            <span className="nav-item-text">{subItem.label}</span>
+                        </Link>
+                    ))}
+                    </>
+                ) : (
+                    <Link href={item.href || '#'} className={cn("nav-item", pathname === item.href && "active")}>
+                        <item.icon className="nav-item-icon" />
+                        <span className="nav-item-text">{item.label}</span>
+                    </Link>
+                )}
+                </div>
+            ))}
+            </nav>
+            
+            <div className="sidebar-footer">
+                <ThemeToggle />
+            </div>
+
+        </aside>
+        <main className="main-content">
+            <header className="main-header">
+            <button onClick={toggleSidebar} className="sidebar-toggle-button">
+                {isCollapsed ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
+            </button>
+            </header>
+            <div className="content-area">
+            {children}
+            </div>
+        </main>
         </div>
-      </main>
-    </div>
+    </QueryProvider>
   );
 }
