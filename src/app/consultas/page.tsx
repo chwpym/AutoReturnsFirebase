@@ -13,7 +13,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Movimentacao, MovimentacaoGarantia } from '@/types/firestore';
+import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao } from '@/types/firestore';
 import {
   Card,
   CardContent,
@@ -72,8 +72,8 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import Link from 'next/link';
 import { GarantiaForm } from '../movimentacoes/garantia/[id]/page';
+import { DevolucaoForm } from '../movimentacoes/devolucao/[id]/page';
 
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
@@ -177,8 +177,12 @@ export default function ConsultasPage() {
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'dataMovimentacao', direction: 'descending' });
-  const [editingMovimentacao, setEditingMovimentacao] = React.useState<Movimentacao | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+  
+  const [editingGarantia, setEditingGarantia] = React.useState<MovimentacaoGarantia | null>(null);
+  const [isGarantiaModalOpen, setIsGarantiaModalOpen] = React.useState(false);
+  
+  const [editingDevolucao, setEditingDevolucao] = React.useState<MovimentacaoDevolucao | null>(null);
+  const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = React.useState(false);
 
 
   const {
@@ -269,13 +273,20 @@ export default function ConsultasPage() {
   };
 
   const handleEdit = (mov: Movimentacao) => {
-    setEditingMovimentacao(mov);
-    setIsEditModalOpen(true);
+    if (mov.tipoMovimentacao === 'Garantia') {
+        setEditingGarantia(mov as MovimentacaoGarantia);
+        setIsGarantiaModalOpen(true);
+    } else if (mov.tipoMovimentacao === 'Devolução') {
+        setEditingDevolucao(mov as MovimentacaoDevolucao);
+        setIsDevolucaoModalOpen(true);
+    }
   }
 
   const handleEditSuccess = () => {
-    setIsEditModalOpen(false);
-    setEditingMovimentacao(null);
+    setIsGarantiaModalOpen(false);
+    setEditingGarantia(null);
+    setIsDevolucaoModalOpen(false);
+    setEditingDevolucao(null);
     refetch(); // Re-fetch data to show updated info
   }
 
@@ -559,19 +570,10 @@ export default function ConsultasPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          {mov.tipoMovimentacao === 'Devolução' ? (
-                             <DropdownMenuItem asChild>
-                                <Link href={`/movimentacoes/devolucao/${mov.id}`}>
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Editar
-                                </Link>
-                            </DropdownMenuItem>
-                          ) : (
-                             <DropdownMenuItem onSelect={() => handleEdit(mov)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
-                            </DropdownMenuItem>
-                          )}
+                           <DropdownMenuItem onSelect={() => handleEdit(mov)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                          </DropdownMenuItem>
                          
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -612,17 +614,33 @@ export default function ConsultasPage() {
         </CardContent>
       </Card>
       
-      {editingMovimentacao && editingMovimentacao.tipoMovimentacao === 'Garantia' && (
-        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      {editingGarantia && (
+        <Dialog open={isGarantiaModalOpen} onOpenChange={setIsGarantiaModalOpen}>
             <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
                     <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
                 </DialogHeader>
                 <GarantiaForm 
-                    movimentacaoId={editingMovimentacao.id} 
+                    movimentacaoId={editingGarantia.id} 
                     onSaveSuccess={handleEditSuccess}
-                    onCancel={() => setIsEditModalOpen(false)}
+                    onCancel={() => setIsGarantiaModalOpen(false)}
+                />
+            </DialogContent>
+        </Dialog>
+      )}
+
+      {editingDevolucao && (
+        <Dialog open={isDevolucaoModalOpen} onOpenChange={setIsDevolucaoModalOpen}>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Editar Registro de Devolução</DialogTitle>
+                    <DialogDescription>Altere os dados do registro de devolução.</DialogDescription>
+                </DialogHeader>
+                <DevolucaoForm 
+                    movimentacaoId={editingDevolucao.id} 
+                    onSaveSuccess={handleEditSuccess}
+                    onCancel={() => setIsDevolucaoModalOpen(false)}
                 />
             </DialogContent>
         </Dialog>
