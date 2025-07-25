@@ -160,10 +160,6 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
         constraints.push(where('nfSaida', '==', filters.numeroNF));
     }
 
-    if (constraints.length === 0) {
-        return [];
-    }
-
     const q = query(collectionRef, ...constraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(
@@ -200,7 +196,6 @@ export default function ConsultasPage() {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
-        // Handle undefined or null values for 'acaoRetorno'
         if (sortConfig.key === 'acaoRetorno') {
             const valA = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
             const valB = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
@@ -217,7 +212,6 @@ export default function ConsultasPage() {
             return 0;
         }
         
-        // Fallback for string types
         if (typeof aValue === 'string' && typeof bValue === 'string') {
             if (aValue.toLowerCase() < bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? -1 : 1;
             if (aValue.toLowerCase() > bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? 1 : -1;
@@ -265,8 +259,8 @@ export default function ConsultasPage() {
   const handleClearFilters = () => {
     setFilters(initialFilters);
     setHasSearched(false);
-    queryClient.setQueryData(['movimentacoes', filters], []);
-    queryClient.setQueryData(['movimentacoes', initialFilters], []);
+    setSortConfig({ key: 'dataMovimentacao', direction: 'descending' });
+    queryClient.removeQueries({ queryKey: ['movimentacoes'] });
   };
 
   const handleDelete = async (id: string) => {
@@ -297,7 +291,7 @@ export default function ConsultasPage() {
             <Search className="h-6 w-6" /> Consultar Movimentações
           </CardTitle>
           <CardDescription>
-            Use os filtros para encontrar devoluções e garantias.
+            Use os filtros para encontrar devoluções e garantias. Clique em filtrar sem nenhum campo para buscar tudo.
           </CardDescription>
         </CardHeader>
         <CardContent>
