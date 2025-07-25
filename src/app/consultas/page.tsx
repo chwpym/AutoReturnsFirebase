@@ -184,7 +184,8 @@ export default function ConsultasPage() {
           <CardDescription>Use os filtros para encontrar devoluções e garantias.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Linha 1 */}
                 <div className="space-y-2">
                     <Label>Tipo de Movimentação</Label>
                     <Select value={filters.tipoMovimentacao} onValueChange={(v) => handleFilterChange('tipoMovimentacao', v as Filters['tipoMovimentacao'])}>
@@ -197,20 +198,22 @@ export default function ConsultasPage() {
                     </Select>
                 </div>
 
-                {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
-                    <div className="space-y-2">
-                         <Label>Status da Garantia</Label>
-                        <Select value={filters.statusGarantia} onValueChange={(v) => handleFilterChange('statusGarantia', v as Filters['statusGarantia'])}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Todos">Todos</SelectItem>
-                                <SelectItem value="Pendente">Pendente</SelectItem>
-                                <SelectItem value="Aprovada">Aprovada</SelectItem>
-                                <SelectItem value="Recusada">Recusada</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
+                <div className="space-y-2">
+                     <Label>Status da Garantia</Label>
+                    <Select 
+                        value={filters.statusGarantia} 
+                        onValueChange={(v) => handleFilterChange('statusGarantia', v as Filters['statusGarantia'])}
+                        disabled={filters.tipoMovimentacao === 'Devolução'}
+                    >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Todos">Todos</SelectItem>
+                            <SelectItem value="Pendente">Pendente</SelectItem>
+                            <SelectItem value="Aprovada">Aprovada</SelectItem>
+                            <SelectItem value="Recusada">Recusada</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
                 
                 <div className="space-y-2">
                     <Label>Data de Início</Label>
@@ -237,6 +240,8 @@ export default function ConsultasPage() {
                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dataFim} onSelect={(d) => handleFilterChange('dataFim', d)} initialFocus /></PopoverContent>
                     </Popover>
                 </div>
+
+                {/* Linha 2 */}
                  <div className="space-y-2">
                     <Label>Cliente</Label>
                      <SearchCombobox
@@ -264,21 +269,22 @@ export default function ConsultasPage() {
                         className="w-full"
                     />
                 </div>
-                 {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
-                     <div className="space-y-2 lg:col-span-2">
-                        <Label>Fornecedor</Label>
-                        <SearchCombobox
-                            collectionName="fornecedores"
-                            labelField={['razaoSocial', 'nomeFantasia']}
-                            searchField="razaoSocial"
-                            placeholder="Buscar fornecedor..."
-                            emptyMessage="Nenhum fornecedor encontrado."
-                            value={filters.fornecedorId ?? null}
-                            onChange={(v) => handleFilterChange('fornecedorId', v)}
-                            className="w-full"
-                        />
-                    </div>
-                )}
+                 <div className="space-y-2 md:col-span-2">
+                    <Label>Fornecedor</Label>
+                    <SearchCombobox
+                        collectionName="fornecedores"
+                        labelField={['razaoSocial', 'nomeFantasia']}
+                        searchField="razaoSocial"
+                        placeholder="Buscar fornecedor..."
+                        emptyMessage="Nenhum fornecedor encontrado."
+                        value={filters.fornecedorId ?? null}
+                        onChange={(v) => handleFilterChange('fornecedorId', v)}
+                        className="w-full"
+                        disabled={filters.tipoMovimentacao === 'Devolução'}
+                    />
+                </div>
+
+                {/* Linha 3 */}
                  <div className="space-y-2">
                     <Label htmlFor="requisicaoVenda">Nº da Requisição</Label>
                     <Input id="requisicaoVenda" value={filters.requisicaoVenda} onChange={(e) => handleFilterChange('requisicaoVenda', e.target.value)} placeholder="Ex: 12345"/>
@@ -287,24 +293,23 @@ export default function ConsultasPage() {
                     <Label htmlFor="numeroNF">Nº da NF</Label>
                     <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
                 </div>
-            </div>
-            <div className="flex items-end gap-4 pt-4">
-                 <div className="flex-1 space-y-2">
+
+                {/* Linha 4 */}
+                 <div className="md:col-span-3 space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
                     <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
                 </div>
-                <div className="flex-shrink-0 flex items-end gap-2">
-                    <Button onClick={handleSearch} disabled={isLoadingData}>
+                <div className="flex items-end justify-end gap-2">
+                    <Button onClick={handleSearch} disabled={isLoadingData} className="w-full md:w-auto">
                         {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Filtrar
                     </Button>
-                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
+                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData} className="w-full md:w-auto">
                         <X className="mr-2 h-4 w-4" />
                         Limpar
                     </Button>
                 </div>
             </div>
-
         </CardContent>
       </Card>
       
@@ -377,5 +382,3 @@ export default function ConsultasPage() {
     </div>
   );
 }
-
-    
