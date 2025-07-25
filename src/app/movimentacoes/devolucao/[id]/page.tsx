@@ -48,7 +48,7 @@ import { QuickAddModal } from '@/components/quick-add-modal';
 import { ClienteForm } from '@/app/cadastros/clientes/ClienteForm';
 import { PecaForm } from '@/app/cadastros/pecas/PecaForm';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
 const devolucaoSchema = z.object({
   pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
@@ -347,7 +347,10 @@ function DevolucaoForm({ movimentacaoId }: DevolucaoFormProps) {
   );
 }
 
-export default function DevolucaoEditPage({ params }: { params: { id: string } }) {
+export default function DevolucaoEditPage() {
+  const params = useParams();
+  const movimentacaoId = params.id as string;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -361,7 +364,7 @@ export default function DevolucaoEditPage({ params }: { params: { id: string } }
           </p>
         </div>
       </div>
-      <DevolucaoForm movimentacaoId={params.id} />
+      <DevolucaoForm movimentacaoId={movimentacaoId} />
     </div>
   );
 }

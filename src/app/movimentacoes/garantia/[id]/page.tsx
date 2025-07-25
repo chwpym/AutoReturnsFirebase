@@ -25,7 +25,7 @@ import { ClienteForm } from '@/app/cadastros/clientes/ClienteForm';
 import { FornecedorForm } from '@/app/cadastros/fornecedores/FornecedorForm';
 import { PecaForm } from '@/app/cadastros/pecas/PecaForm';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 
 const garantiaSchema = z.object({
   pecaId: z.string().min(1, 'Busque e selecione uma peça válida.'),
@@ -269,7 +269,10 @@ function GarantiaForm({ movimentacaoId }: GarantiaFormProps) {
   );
 }
 
-export default function GarantiaEditPage({ params }: { params: { id: string } }) {
+export default function GarantiaEditPage() {
+  const params = useParams();
+  const movimentacaoId = params.id as string;
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
@@ -283,7 +286,7 @@ export default function GarantiaEditPage({ params }: { params: { id: string } })
           </p>
         </div>
       </div>
-      <GarantiaForm movimentacaoId={params.id} />
+      <GarantiaForm movimentacaoId={movimentacaoId} />
     </div>
   );
 }
