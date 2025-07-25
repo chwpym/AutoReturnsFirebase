@@ -117,15 +117,6 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
     const collectionRef = collection(db, 'movimentacoes');
     let constraints: QueryConstraint[] = [];
 
-    // Check if any specific text/ID filter is active
-    const hasSpecificFilters =
-        !!filters.clienteId ||
-        !!filters.mecanicoId ||
-        !!filters.fornecedorId ||
-        !!filters.pecaCodigo ||
-        !!filters.requisicaoVenda ||
-        !!filters.numeroNF;
-
     if (filters.tipoMovimentacao !== 'Todas') {
         constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
     }
@@ -160,11 +151,6 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
     }
     if (filters.numeroNF) {
         constraints.push(where('nfSaida', '==', filters.numeroNF));
-    }
-
-    // Only apply orderBy if there are no specific text/ID filters
-    if (!hasSpecificFilters) {
-        constraints.push(orderBy('dataMovimentacao', 'desc'));
     }
 
     // If there are no constraints at all, return empty to avoid fetching all documents.
