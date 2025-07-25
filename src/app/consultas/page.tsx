@@ -76,7 +76,7 @@ interface Filters {
     clienteId?: string | null;
     mecanicoId?: string | null;
     fornecedorId?: string | null;
-    codigoPeca: string;
+    pecaCodigo: string;
     requisicaoVenda: string;
     numeroNF: string;
 }
@@ -89,14 +89,14 @@ const initialFilters: Filters = {
     clienteId: null,
     mecanicoId: null,
     fornecedorId: null,
-    codigoPeca: '',
+    pecaCodigo: '',
     requisicaoVenda: '',
     numeroNF: '',
 };
 
 const fetchMovimentacoes = async (filters: Filters) => {
     const collectionRef = collection(db, 'movimentacoes');
-    const constraints: QueryConstraint[] = [];
+    let constraints: QueryConstraint[] = [];
     let applyOrderBy = true;
 
     if (filters.tipoMovimentacao !== 'Todas') {
@@ -107,11 +107,13 @@ const fetchMovimentacoes = async (filters: Filters) => {
     }
     if (filters.dataInicio) {
       constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
+       applyOrderBy = false; // Cannot have inequality filter with orderBy on a different field
     }
     if (filters.dataFim) {
       const endOfDay = new Date(filters.dataFim);
       endOfDay.setHours(23, 59, 59, 999);
       constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
+       applyOrderBy = false; // Cannot have inequality filter with orderBy on a different field
     }
     if (filters.clienteId) {
       constraints.push(where('clienteId', '==', filters.clienteId));
@@ -125,8 +127,8 @@ const fetchMovimentacoes = async (filters: Filters) => {
       constraints.push(where('fornecedorId', '==', filters.fornecedorId));
       applyOrderBy = false;
     }
-    if (filters.codigoPeca) {
-      constraints.push(where('pecaCodigo', '==', filters.codigoPeca));
+    if (filters.pecaCodigo) {
+      constraints.push(where('pecaCodigo', '==', filters.pecaCodigo));
       applyOrderBy = false;
     }
     if(filters.requisicaoVenda) {
@@ -138,12 +140,12 @@ const fetchMovimentacoes = async (filters: Filters) => {
         applyOrderBy = false;
     }
     
-    const finalConstraints = [...constraints];
+    // Only order by date if no other specific text/ID filters are applied
     if (applyOrderBy) {
-        finalConstraints.push(orderBy('dataMovimentacao', 'desc'));
+        constraints.push(orderBy('dataMovimentacao', 'desc'));
     }
 
-    const q = query(collectionRef, ...finalConstraints);
+    const q = query(collectionRef, ...constraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimentacao));
 }
@@ -176,6 +178,20 @@ export default function ConsultasPage() {
   };
 
   const handleSearch = () => {
+    // Basic validation to prevent querying without any filter
+    const hasFilters = Object.values(filters).some(value => {
+        if (typeof value === 'string' || typeof value === 'object') return !!value;
+        return false;
+    });
+
+    if (!hasFilters) {
+        toast({
+            title: 'Nenhum filtro aplicado',
+            description: 'Por favor, selecione pelo menos um filtro para iniciar a busca.',
+            variant: 'destructive'
+        });
+        return;
+    }
     setSubmittedFilters(filters);
   }
   
@@ -304,8 +320,8 @@ export default function ConsultasPage() {
                     <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: PD123"/>
+                    <Label htmlFor="pecaCodigo">Código da Peça</Label>
+                    <Input id="pecaCodigo" value={filters.pecaCodigo} onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)} placeholder="Ex: PD123"/>
                 </div>
                 <div className="flex items-end justify-start gap-2">
                     <Button onClick={handleSearch} disabled={isLoadingData}>
@@ -354,7 +370,7 @@ export default function ConsultasPage() {
                         ) : movimentacoes && movimentacoes.length > 0 ? (
                             movimentacoes.map(mov => (
                                 <TableRow key={mov.id}>
-                                    <TableCell>{format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
+                                    <TableCell>{mov.dataMovimentacao.toDate().toLocaleString('pt-BR')}</TableCell>
                                     <TableCell>
                                         <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>{mov.tipoMovimentacao}</Badge>
                                     </TableCell>
@@ -390,3 +406,5 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
+    
