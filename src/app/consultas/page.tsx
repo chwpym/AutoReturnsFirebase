@@ -198,8 +198,8 @@ export default function ConsultasPage() {
   } = useQuery({
     queryKey: ['movimentacoes', filters],
     queryFn: () => fetchMovimentacoes(filters),
-    enabled: false, // Busca manual
-    refetchOnWindowFocus: false, // Busca manual
+    enabled: false, 
+    refetchOnWindowFocus: false, 
   });
 
   React.useEffect(() => {
@@ -225,8 +225,15 @@ export default function ConsultasPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleSearch = () => {
+    refetch();
+  };
+
   const handleClearFilters = () => {
     setFilters(initialFilters);
+    // We need to pass the initialFilters to refetch immediately 
+    // because setState is async.
+    queryClient.setQueryData(['movimentacoes', initialFilters], []);
     refetch();
   };
 
@@ -262,8 +269,8 @@ export default function ConsultasPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Linha 1 */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+             {/* Linha 1 */}
             <div className="space-y-2">
               <Label>Tipo de Movimentação</Label>
               <Select
@@ -439,8 +446,8 @@ export default function ConsultasPage() {
                     placeholder="Ex: PD123"
                 />
             </div>
-            <div className="flex items-end justify-start gap-2">
-              <Button onClick={() => refetch()} disabled={isLoadingData}>
+             <div className="flex items-end justify-start gap-2">
+              <Button onClick={handleSearch} disabled={isLoadingData}>
                 {isLoadingData ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -467,7 +474,7 @@ export default function ConsultasPage() {
           <CardDescription>
             {movimentacoes
               ? `${movimentacoes.length} resultado(s) encontrado(s).`
-              : 'Buscando...'}
+              : 'Aguardando busca...'}
           </CardDescription>
         </CardHeader>
         <CardContent>
