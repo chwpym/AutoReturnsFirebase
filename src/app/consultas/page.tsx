@@ -85,6 +85,9 @@ interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDFWithAutoTable;
 }
 
+// Logo as a Base64 string to avoid fetch issues
+const logoBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASJSURBVHja7d1BbiVFGAbgr4MkBZe4QIgrGFERRMFFR3ChS3QdLoAwxAK4iJgDiIuAy4IoQhTcxUEUJYgoQhVcZRc4cRBHBxFELqgoq+A4d0LdQDd1X/dPddM/tX+q+vrqqdOhP10AIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQCQz/gDApGZ+l/8i8I0AAAAASUVORK5CYII=';
+
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
   switch (status) {
@@ -338,32 +341,11 @@ export default function ConsultasPage() {
     }
   };
   
-  const bufferToBase64 = (buffer: ArrayBuffer) => {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return window.btoa(binary);
-  }
 
-  const handleGeneratePdf = async () => {
+  const handleGeneratePdf = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
-    }
-  
-    let logoBase64 = '';
-    try {
-      const response = await fetch('/images/logo.png');
-      if (!response.ok) throw new Error('Logo not found');
-      const imageBuffer = await response.arrayBuffer();
-      logoBase64 = `data:image/png;base64,${bufferToBase64(imageBuffer)}`;
-
-    } catch (error) {
-      console.error("Error loading logo, proceeding without it.", error);
-      toast({ title: "Logo não encontrado", description: "O relatório será gerado sem o logo da empresa.", variant: "destructive" });
     }
   
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
@@ -425,10 +407,12 @@ export default function ConsultasPage() {
       return selectedColumns.map(col => {
         let value: any = '-';
   
-        if (col.id === 'fornecedorNome') {
-          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
-        } else if (col.id === 'acaoRetorno') {
-          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
+        if (mov.tipoMovimentacao === 'Garantia' && col.id === 'fornecedorNome') {
+          value = mov.fornecedorNome;
+        } else if (mov.tipoMovimentacao === 'Garantia' && col.id === 'acaoRetorno') {
+          value = mov.acaoRetorno;
+        } else if (mov.tipoMovimentacao === 'Devolução' && (col.id === 'fornecedorNome' || col.id === 'acaoRetorno')) {
+          value = 'N/A';
         } else if (col.id in mov) {
           value = (mov as any)[col.id];
         }
@@ -917,5 +901,7 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
+    
 
     
