@@ -33,7 +33,7 @@ const menuItems = [
       { href: "/movimentacoes/garantia", label: "Registrar Garantia", icon: ShieldCheck },
   ]},
   { href: "/consultas", label: "Consultas", icon: Search },
-  { href: "/relatorios", label: "Relatórios", icon: FileText },
+  { href: "/consultas", label: "Relatórios", icon: FileText },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -69,7 +69,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     ))}
                     </>
                 ) : (
-                    <Link href={item.href || '#'} className={cn("nav-item", pathname === item.href && "active")}>
+                    <Link href={item.href || '#'} key={`${item.href}-${item.label}`} className={cn("nav-item", pathname === item.href && "active")}>
                         <item.icon className="nav-item-icon" />
                         <span className="nav-item-text">{item.label}</span>
                     </Link>

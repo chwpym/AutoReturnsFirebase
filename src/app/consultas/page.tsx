@@ -13,7 +13,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao } from '@/types/firestore';
+import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao, Cliente, Fornecedor, Peca } from '@/types/firestore';
 import {
   Card,
   CardContent,
@@ -50,7 +50,7 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -74,6 +74,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { GarantiaForm } from '../movimentacoes/garantia/[id]/page';
 import { DevolucaoForm } from '../movimentacoes/devolucao/[id]/page';
+import Papa from 'papaparse';
 
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
@@ -165,6 +166,7 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
 
     const q = query(collectionRef, ...constraints);
     const querySnapshot = await getDocs(q);
+    
     return querySnapshot.docs.map(
         (doc) => ({ id: doc.id, ...doc.data() } as Movimentacao)
     );
@@ -309,17 +311,54 @@ export default function ConsultasPage() {
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCSV = () => {
+    if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
+      toast({
+        title: 'Nenhum dado para exportar',
+        description: 'Faça uma busca antes de exportar.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const dataToExport = sortedMovimentacoes.map(mov => ({
+      'Data': format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm:ss'),
+      'Tipo': mov.tipoMovimentacao,
+      'Cód. Peça': mov.pecaCodigo,
+      'Descrição Peça': mov.pecaDescricao,
+      'Cliente': mov.clienteNome,
+      'Requisição': mov.requisicaoVenda,
+      'Status Garantia': mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A',
+      'Observação': mov.observacao
+    }));
+
+    const csv = Papa.unparse(dataToExport);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const isLoadingData = isLoading || isFetching;
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className='no-print'>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-6 w-6" /> Consultar Movimentações
+            <Search className="h-6 w-6" /> Consultas e Relatórios
           </CardTitle>
           <CardDescription>
-            Use os filtros para encontrar devoluções e garantias. Clique em filtrar sem nenhum campo para buscar tudo.
+            Use os filtros para encontrar devoluções e garantias. Depois, imprima ou exporte os resultados.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -469,14 +508,44 @@ export default function ConsultasPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="report-section">
         <CardHeader>
-          <CardTitle>Resultados da Busca</CardTitle>
-          <CardDescription>
-            {hasSearched
-              ? `${sortedMovimentacoes?.length ?? 0} resultado(s) encontrado(s).`
-              : 'Aguardando busca...'}
-          </CardDescription>
+            <div className="flex justify-between items-center">
+                <div>
+                    <CardTitle>Resultados da Busca</CardTitle>
+                    <CardDescription>
+                        {hasSearched
+                        ? `${sortedMovimentacoes?.length ?? 0} resultado(s) encontrado(s).`
+                        : 'Aguardando busca...'}
+                    </CardDescription>
+                </div>
+                <div className="flex gap-2 no-print">
+                    <Button variant="outline" onClick={handlePrint} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
+                        <Printer className="mr-2 h-4 w-4" />
+                        Imprimir Relatório
+                    </Button>
+                    <Button variant="outline" onClick={handleExportCSV} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar para CSV
+                    </Button>
+                </div>
+            </div>
+            <div className="print-only mt-4 border rounded-lg p-4">
+              <h2 className="text-lg font-semibold mb-2">Relatório de Movimentações</h2>
+              <h3 className="text-sm font-medium mb-2">Filtros Aplicados:</h3>
+              <ul className="list-disc list-inside text-sm text-muted-foreground">
+                <li>Tipo de Movimentação: {filters.tipoMovimentacao}</li>
+                {filters.tipoMovimentacao !== 'Devolução' && <li>Status da Garantia: {filters.statusGarantia}</li>}
+                {filters.dataInicio && <li>Data de Início: {format(filters.dataInicio, 'dd/MM/yyyy')}</li>}
+                {filters.dataFim && <li>Data de Fim: {format(filters.dataFim, 'dd/MM/yyyy')}</li>}
+                {filters.clienteId && <li>Cliente ID: {filters.clienteId}</li>}
+                {filters.mecanicoId && <li>Mecânico ID: {filters.mecanicoId}</li>}
+                {filters.fornecedorId && <li>Fornecedor ID: {filters.fornecedorId}</li>}
+                {filters.pecaCodigo && <li>Código da Peça: {filters.pecaCodigo}</li>}
+                {filters.requisicaoVenda && <li>Nº da Requisição: {filters.requisicaoVenda}</li>}
+                {filters.numeroNF && <li>Nº da NF: {filters.numeroNF}</li>}
+              </ul>
+            </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -518,7 +587,7 @@ export default function ConsultasPage() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </TableHead>
-                <TableHead className="w-[80px] text-right">Ações</TableHead>
+                <TableHead className="w-[80px] text-right no-print">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -538,7 +607,7 @@ export default function ConsultasPage() {
                 sortedMovimentacoes.map((mov) => (
                   <TableRow key={mov.id}>
                     <TableCell>
-                      {format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy, HH:mm:ss')}
+                      {format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}
                     </TableCell>
                     <TableCell>
                       <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>
@@ -562,7 +631,7 @@ export default function ConsultasPage() {
                         '-'
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right no-print">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
@@ -617,7 +686,7 @@ export default function ConsultasPage() {
       
       {editingGarantia && (
         <Dialog open={isGarantiaModalOpen} onOpenChange={setIsGarantiaModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto no-print">
                 <DialogHeader>
                     <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
                     <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
@@ -633,7 +702,7 @@ export default function ConsultasPage() {
 
       {editingDevolucao && (
         <Dialog open={isDevolucaoModalOpen} onOpenChange={setIsDevolucaoModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto no-print">
                 <DialogHeader>
                     <DialogTitle>Editar Registro de Devolução</DialogTitle>
                     <DialogDescription>Altere os dados do registro de devolução.</DialogDescription>

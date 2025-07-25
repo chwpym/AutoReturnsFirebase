@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -80,6 +81,40 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .no-print, .sidebar, .main-header {
+    display: none !important;
+  }
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+  .content-area {
+    padding: 0 !important;
+  }
+  body {
+    background-color: #fff;
+    color: #000;
+  }
+  .print-only {
+    display: block !important;
+  }
+  #report-section .print-only {
+    display: block !important;
+  }
+  #report-section {
+    border: none;
+    box-shadow: none;
+  }
+}
+
+@layer utilities {
+  .print-only {
+    display: none;
   }
 }
 
