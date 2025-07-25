@@ -91,6 +91,7 @@ body {
   }
   .main-content {
     margin-left: 0 !important;
+    padding: 0 !important;
     width: 100% !important;
   }
   .content-area {
@@ -126,7 +127,7 @@ body {
 }
 
 @page {
-  size: A4 portrait;
+  size: A4 landscape;
   margin: 1.5cm;
   
   @bottom-right {
