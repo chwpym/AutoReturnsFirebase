@@ -11,6 +11,7 @@ import {
   QueryConstraint,
   deleteDoc,
   doc,
+  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Movimentacao, MovimentacaoGarantia } from '@/types/firestore';
@@ -170,6 +171,7 @@ const fetchMovimentacoes = async (filters: Filters) => {
     applyOrderBy = false;
   }
 
+  // Only apply order by when no specific text filters are used to avoid composite index errors
   if (applyOrderBy) {
     constraints.push(orderBy('dataMovimentacao', 'desc'));
   }
@@ -387,7 +389,6 @@ export default function ConsultasPage() {
                 value={filters.mecanicoId ?? null}
                 onChange={(v) => handleFilterChange('mecanicoId', v)}
                 className="w-full"
-                queryConstraints={[where('tipo.mecanico', '==', true)]}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
