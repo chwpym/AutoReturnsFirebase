@@ -11,7 +11,6 @@ import {
   QueryConstraint,
   deleteDoc,
   doc,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Movimentacao, MovimentacaoGarantia } from '@/types/firestore';
@@ -51,7 +50,7 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -99,6 +98,12 @@ interface Filters {
   requisicaoVenda: string;
   numeroNF: string;
 }
+
+type SortConfig = {
+    key: keyof Movimentacao;
+    direction: 'ascending' | 'descending';
+} | null;
+
 
 const initialFilters: Filters = {
   tipoMovimentacao: 'Todas',
@@ -153,7 +158,6 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
         constraints.push(where('nfSaida', '==', filters.numeroNF));
     }
 
-    // If there are no constraints at all, return empty to avoid fetching all documents.
     if (constraints.length === 0) {
         return [];
     }
@@ -171,6 +175,8 @@ export default function ConsultasPage() {
 
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
+  const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'dataMovimentacao', direction: 'descending' });
+
 
   const {
     data: movimentacoes,
@@ -184,6 +190,39 @@ export default function ConsultasPage() {
     enabled: false,
     refetchOnWindowFocus: false,
   });
+
+  const sortedMovimentacoes = React.useMemo(() => {
+    let sortableItems = [...(movimentacoes || [])];
+    if (sortConfig !== null) {
+      sortableItems.sort((a, b) => {
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+
+        if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
+            const aDate = aValue.toDate();
+            const bDate = bValue.toDate();
+            if (aDate < bDate) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aDate > bDate) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        }
+        
+        // Fallback for other types
+        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [movimentacoes, sortConfig]);
+
+  const requestSort = (key: keyof Movimentacao) => {
+    let direction: 'ascending' | 'descending' = 'ascending';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+      direction = 'descending';
+    }
+    setSortConfig({ key, direction });
+  };
+
 
   React.useEffect(() => {
     if (isError) {
@@ -211,7 +250,7 @@ export default function ConsultasPage() {
   const handleClearFilters = () => {
     setFilters(initialFilters);
     setHasSearched(false);
-    queryClient.setQueryData(['movimentacoes', filters], []);
+    queryClient.setQueryData(['movimentacoes', initialFilters], []);
   };
 
   const handleDelete = async (id: string) => {
@@ -397,7 +436,7 @@ export default function ConsultasPage() {
           <CardTitle>Resultados da Busca</CardTitle>
           <CardDescription>
             {hasSearched
-              ? `${movimentacoes?.length ?? 0} resultado(s) encontrado(s).`
+              ? `${sortedMovimentacoes?.length ?? 0} resultado(s) encontrado(s).`
               : 'Aguardando busca...'}
           </CardDescription>
         </CardHeader>
@@ -405,7 +444,12 @@ export default function ConsultasPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Data</TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('dataMovimentacao')}>
+                        Data
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Peça</TableHead>
                 <TableHead>Cliente</TableHead>
@@ -425,11 +469,11 @@ export default function ConsultasPage() {
                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
                 ))
-              ) : hasSearched && movimentacoes && movimentacoes.length > 0 ? (
-                movimentacoes.map((mov) => (
+              ) : hasSearched && sortedMovimentacoes && sortedMovimentacoes.length > 0 ? (
+                sortedMovimentacoes.map((mov) => (
                   <TableRow key={mov.id}>
                     <TableCell>
-                      {mov.dataMovimentacao.toDate().toLocaleString('pt-BR')}
+                      {format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy, HH:mm:ss')}
                     </TableCell>
                     <TableCell>
                       <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>
