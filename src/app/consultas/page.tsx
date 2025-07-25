@@ -261,7 +261,7 @@ export default function ConsultasPage() {
                         collectionName="clientes"
                         labelField="nomeRazaoSocial"
                         searchField="nomeRazaoSocial"
-                        queryConstraints={[where('tipo.mecanico', '==', true)]}
+                        queryConstraints={[]}
                         placeholder="Buscar mecânico..."
                         emptyMessage="Nenhum mecânico encontrado."
                         value={filters.mecanicoId ?? null}
@@ -285,11 +285,11 @@ export default function ConsultasPage() {
                 </div>
 
                 {/* Linha 3 */}
-                 <div className="space-y-2">
+                <div className="space-y-2">
                     <Label htmlFor="requisicaoVenda">Nº da Requisição</Label>
                     <Input id="requisicaoVenda" value={filters.requisicaoVenda} onChange={(e) => handleFilterChange('requisicaoVenda', e.target.value)} placeholder="Ex: 12345"/>
                 </div>
-                 <div className="space-y-2">
+                <div className="space-y-2">
                     <Label htmlFor="numeroNF">Nº da NF</Label>
                     <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
                 </div>
@@ -297,12 +297,12 @@ export default function ConsultasPage() {
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
                     <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
                 </div>
-                 <div className="flex items-end justify-start gap-2">
-                    <Button onClick={handleSearch} disabled={isLoadingData} className="w-full md:w-auto">
+                <div className="flex items-end justify-end gap-2">
+                    <Button onClick={handleSearch} disabled={isLoadingData}>
                         {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Filtrar
                     </Button>
-                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData} className="w-full md:w-auto">
+                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
                         <X className="mr-2 h-4 w-4" />
                         Limpar
                     </Button>
