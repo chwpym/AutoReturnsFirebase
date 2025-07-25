@@ -50,7 +50,7 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2 } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -69,13 +69,30 @@ const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
 }
 
 interface Filters {
-    tipoMovimentacao: string;
-    statusGarantia: string;
+    tipoMovimentacao: 'Todas' | 'Devolução' | 'Garantia';
+    statusGarantia: 'Todos' | 'Pendente' | 'Aprovada' | 'Recusada';
     dataInicio?: Date;
     dataFim?: Date;
     clienteId?: string | null;
+    mecanicoId?: string | null;
+    fornecedorId?: string | null;
     codigoPeca: string;
+    requisicaoVenda: string;
+    numeroNF: string;
 }
+
+const initialFilters: Filters = {
+    tipoMovimentacao: 'Todas',
+    statusGarantia: 'Todos',
+    dataInicio: undefined,
+    dataFim: undefined,
+    clienteId: null,
+    mecanicoId: null,
+    fornecedorId: null,
+    codigoPeca: '',
+    requisicaoVenda: '',
+    numeroNF: '',
+};
 
 const fetchMovimentacoes = async (filters: Filters) => {
     const collectionRef = collection(db, 'movimentacoes');
@@ -98,8 +115,22 @@ const fetchMovimentacoes = async (filters: Filters) => {
     if (filters.clienteId) {
       constraints.push(where('clienteId', '==', filters.clienteId));
     }
+     if (filters.mecanicoId) {
+      constraints.push(where('mecanicoId', '==', filters.mecanicoId));
+    }
+     if (filters.fornecedorId && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
+      constraints.push(where('fornecedorId', '==', filters.fornecedorId));
+    }
     if (filters.codigoPeca) {
       constraints.push(where('pecaCodigo', '==', filters.codigoPeca));
+    }
+    if(filters.requisicaoVenda) {
+        constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
+    }
+    if(filters.numeroNF) {
+        // As Firestore has limitations on OR queries, we search in nfSaida.
+        // For a more complex search, multiple queries would be needed.
+        constraints.push(where('nfSaida', '==', filters.numeroNF));
     }
 
     const q = query(collectionRef, ...constraints, orderBy('dataMovimentacao', 'desc'));
@@ -111,21 +142,13 @@ const fetchMovimentacoes = async (filters: Filters) => {
 export default function ConsultasPage() {
   const { toast } = useToast();
   
-  const [filters, setFilters] = React.useState<Filters>({
-    tipoMovimentacao: 'Todas',
-    statusGarantia: 'Todos',
-    dataInicio: undefined,
-    dataFim: undefined,
-    clienteId: null,
-    codigoPeca: '',
-  });
-
+  const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [submittedFilters, setSubmittedFilters] = React.useState<Filters | null>(null);
 
   const { data: movimentacoes, isLoading, isError, isFetching } = useQuery({
       queryKey: ['movimentacoes', submittedFilters],
       queryFn: () => fetchMovimentacoes(submittedFilters!),
-      enabled: !!submittedFilters, // Only run the query if filters have been submitted
+      enabled: !!submittedFilters,
   });
 
    React.useEffect(() => {
@@ -145,6 +168,11 @@ export default function ConsultasPage() {
   const handleSearch = () => {
     setSubmittedFilters(filters);
   }
+  
+  const handleClearFilters = () => {
+      setFilters(initialFilters);
+      setSubmittedFilters(null);
+  }
 
   const isLoadingData = isLoading || isFetching;
 
@@ -156,10 +184,10 @@ export default function ConsultasPage() {
           <CardDescription>Use os filtros para encontrar devoluções e garantias.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                 <div className="space-y-2">
                     <Label>Tipo de Movimentação</Label>
-                    <Select value={filters.tipoMovimentacao} onValueChange={(v) => handleFilterChange('tipoMovimentacao', v)}>
+                    <Select value={filters.tipoMovimentacao} onValueChange={(v) => handleFilterChange('tipoMovimentacao', v as Filters['tipoMovimentacao'])}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Todas">Todas</SelectItem>
@@ -168,10 +196,11 @@ export default function ConsultasPage() {
                         </SelectContent>
                     </Select>
                 </div>
+
                 {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
                     <div className="space-y-2">
                          <Label>Status da Garantia</Label>
-                        <Select value={filters.statusGarantia} onValueChange={(v) => handleFilterChange('statusGarantia', v)}>
+                        <Select value={filters.statusGarantia} onValueChange={(v) => handleFilterChange('statusGarantia', v as Filters['statusGarantia'])}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="Todos">Todos</SelectItem>
@@ -182,10 +211,7 @@ export default function ConsultasPage() {
                         </Select>
                     </div>
                 )}
-                <div className="space-y-2">
-                    <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
-                </div>
+                
                 <div className="space-y-2">
                     <Label>Data de Início</Label>
                     <Popover>
@@ -198,6 +224,7 @@ export default function ConsultasPage() {
                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dataInicio} onSelect={(d) => handleFilterChange('dataInicio', d)} initialFocus /></PopoverContent>
                     </Popover>
                 </div>
+
                 <div className="space-y-2">
                      <Label>Data de Fim</Label>
                      <Popover>
@@ -210,7 +237,7 @@ export default function ConsultasPage() {
                         <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={filters.dataFim} onSelect={(d) => handleFilterChange('dataFim', d)} initialFocus /></PopoverContent>
                     </Popover>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                     <Label>Cliente</Label>
                      <SearchCombobox
                         collectionName="clientes"
@@ -223,12 +250,57 @@ export default function ConsultasPage() {
                         className="w-full"
                     />
                 </div>
+                <div className="space-y-2">
+                    <Label>Mecânico</Label>
+                     <SearchCombobox
+                        collectionName="clientes"
+                        labelField="nomeRazaoSocial"
+                        searchField="nomeRazaoSocial"
+                        queryConstraints={[where('tipo.mecanico', '==', true)]}
+                        placeholder="Buscar mecânico..."
+                        emptyMessage="Nenhum mecânico encontrado."
+                        value={filters.mecanicoId ?? null}
+                        onChange={(v) => handleFilterChange('mecanicoId', v)}
+                        className="w-full"
+                    />
+                </div>
+                 {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
+                    <div className="space-y-2">
+                        <Label>Fornecedor</Label>
+                        <SearchCombobox
+                            collectionName="fornecedores"
+                            labelField={['razaoSocial', 'nomeFantasia']}
+                            searchField="razaoSocial"
+                            placeholder="Buscar fornecedor..."
+                            emptyMessage="Nenhum fornecedor encontrado."
+                            value={filters.fornecedorId ?? null}
+                            onChange={(v) => handleFilterChange('fornecedorId', v)}
+                            className="w-full"
+                        />
+                    </div>
+                )}
+                <div className="space-y-2">
+                    <Label htmlFor="codigoPeca">Código da Peça</Label>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="requisicaoVenda">Nº da Requisição</Label>
+                    <Input id="requisicaoVenda" value={filters.requisicaoVenda} onChange={(e) => handleFilterChange('requisicaoVenda', e.target.value)} placeholder="Ex: 12345"/>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="numeroNF">Nº da NF</Label>
+                    <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
+                </div>
             </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="gap-2">
             <Button onClick={handleSearch} disabled={isLoadingData}>
                 {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                 Filtrar
+            </Button>
+            <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
+                <X className="mr-2 h-4 w-4" />
+                Limpar Filtros
             </Button>
         </CardFooter>
       </Card>
@@ -237,6 +309,9 @@ export default function ConsultasPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Resultados da Busca</CardTitle>
+                 <CardDescription>
+                    {movimentacoes ? `${movimentacoes.length} resultado(s) encontrado(s).` : 'Aguardando busca...'}
+                </CardDescription>
             </CardHeader>
             <CardContent>
                  <Table>
@@ -264,8 +339,13 @@ export default function ConsultasPage() {
                             movimentacoes.map(mov => (
                                 <TableRow key={mov.id}>
                                     <TableCell>{format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}</TableCell>
-                                    <TableCell>{mov.tipoMovimentacao}</TableCell>
-                                    <TableCell>{mov.pecaDescricao} ({mov.pecaCodigo})</TableCell>
+                                    <TableCell>
+                                        <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>{mov.tipoMovimentacao}</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="font-medium">{mov.pecaDescricao}</div>
+                                        <div className="text-xs text-muted-foreground">{mov.pecaCodigo}</div>
+                                    </TableCell>
                                     <TableCell>{mov.clienteNome}</TableCell>
                                     <TableCell>
                                         {mov.tipoMovimentacao === 'Garantia' ? (

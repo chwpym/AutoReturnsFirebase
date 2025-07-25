@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, orderBy, QueryConstraint } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export interface ComboboxOption {
@@ -35,6 +35,7 @@ interface SearchComboboxProps {
   value: string | null;
   onChange: (value: string | null) => void;
   className?: string;
+  queryConstraints?: QueryConstraint[];
 }
 
 const formatLabel = (docData: any, labelField: string | string[]): string => {
@@ -57,18 +58,30 @@ export function SearchCombobox({
   value,
   onChange,
   className,
+  queryConstraints = [],
 }: SearchComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState<ComboboxOption[]>([]);
   const [loading, setLoading] = React.useState(false);
-  const [searchTerm, setSearchTerm] = React.useState('');
+  
+  // Create a stable reference to queryConstraints to avoid re-running useEffect unnecessarily
+  const constraintsRef = React.useRef(queryConstraints);
+  React.useEffect(() => {
+    constraintsRef.current = queryConstraints;
+  }, [queryConstraints]);
 
-  const fetchOptions = React.useCallback(async (search: string) => {
+
+  const fetchOptions = React.useCallback(async () => {
     setLoading(true);
     try {
-      let q = query(
-        collection(db, collectionName),
+      const baseQuery = [
         where('status', '==', 'Ativo'),
+        ...constraintsRef.current
+      ];
+
+      const q = query(
+        collection(db, collectionName),
+        ...baseQuery,
         orderBy(searchField),
         limit(50)
       );
@@ -87,7 +100,7 @@ export function SearchCombobox({
   }, [collectionName, labelField, searchField]);
 
   React.useEffect(() => {
-    fetchOptions('');
+    fetchOptions();
   }, [fetchOptions]);
 
   const selectedOption = options.find((option) => option.value === value);
@@ -109,7 +122,7 @@ export function SearchCombobox({
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
         <Command>
-          <CommandInput placeholder={placeholder} onValueChange={setSearchTerm} />
+          <CommandInput placeholder={placeholder} />
           <CommandList>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
