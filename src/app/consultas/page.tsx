@@ -107,13 +107,13 @@ const fetchMovimentacoes = async (filters: Filters) => {
     }
     if (filters.dataInicio) {
       constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
-       applyOrderBy = false; // Cannot have inequality filter with orderBy on a different field
+       applyOrderBy = false; 
     }
     if (filters.dataFim) {
       const endOfDay = new Date(filters.dataFim);
       endOfDay.setHours(23, 59, 59, 999);
       constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
-       applyOrderBy = false; // Cannot have inequality filter with orderBy on a different field
+       applyOrderBy = false; 
     }
     if (filters.clienteId) {
       constraints.push(where('clienteId', '==', filters.clienteId));
@@ -140,7 +140,6 @@ const fetchMovimentacoes = async (filters: Filters) => {
         applyOrderBy = false;
     }
     
-    // Only order by date if no other specific text/ID filters are applied
     if (applyOrderBy) {
         constraints.push(orderBy('dataMovimentacao', 'desc'));
     }
@@ -178,20 +177,6 @@ export default function ConsultasPage() {
   };
 
   const handleSearch = () => {
-    // Basic validation to prevent querying without any filter
-    const hasFilters = Object.values(filters).some(value => {
-        if (typeof value === 'string' || typeof value === 'object') return !!value;
-        return false;
-    });
-
-    if (!hasFilters) {
-        toast({
-            title: 'Nenhum filtro aplicado',
-            description: 'Por favor, selecione pelo menos um filtro para iniciar a busca.',
-            variant: 'destructive'
-        });
-        return;
-    }
     setSubmittedFilters(filters);
   }
   
@@ -287,7 +272,6 @@ export default function ConsultasPage() {
                         collectionName="clientes"
                         labelField="nomeRazaoSocial"
                         searchField="nomeRazaoSocial"
-                        queryConstraints={[where('tipo.mecanico', '==', true)]}
                         placeholder="Buscar mecânico..."
                         emptyMessage="Nenhum mecânico encontrado."
                         value={filters.mecanicoId ?? null}
@@ -321,7 +305,7 @@ export default function ConsultasPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="pecaCodigo">Código da Peça</Label>
-                    <Input id="pecaCodigo" value={filters.pecaCodigo} onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)} placeholder="Ex: PD123"/>
+                    <Input id="pecaCodigo" value={filters.pecaCodigo} onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)} placeholder="Ex: 806"/>
                 </div>
                 <div className="flex items-end justify-start gap-2">
                     <Button onClick={handleSearch} disabled={isLoadingData}>
