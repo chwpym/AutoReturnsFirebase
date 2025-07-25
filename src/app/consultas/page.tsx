@@ -99,8 +99,10 @@ interface Filters {
   numeroNF: string;
 }
 
+type SortableKeys = 'dataMovimentacao' | 'tipoMovimentacao' | 'pecaDescricao' | 'clienteNome' | 'acaoRetorno';
+
 type SortConfig = {
-    key: keyof Movimentacao;
+    key: SortableKeys;
     direction: 'ascending' | 'descending';
 } | null;
 
@@ -198,6 +200,15 @@ export default function ConsultasPage() {
         const aValue = a[sortConfig.key];
         const bValue = b[sortConfig.key];
 
+        // Handle undefined or null values for 'acaoRetorno'
+        if (sortConfig.key === 'acaoRetorno') {
+            const valA = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
+            const valB = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
+             if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+             if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+             return 0;
+        }
+
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
             const aDate = aValue.toDate();
             const bDate = bValue.toDate();
@@ -206,16 +217,20 @@ export default function ConsultasPage() {
             return 0;
         }
         
-        // Fallback for other types
-        if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-        if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
+        // Fallback for string types
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            if (aValue.toLowerCase() < bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (aValue.toLowerCase() > bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
+        }
+        
         return 0;
       });
     }
     return sortableItems;
   }, [movimentacoes, sortConfig]);
 
-  const requestSort = (key: keyof Movimentacao) => {
+  const requestSort = (key: SortableKeys) => {
     let direction: 'ascending' | 'descending' = 'ascending';
     if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
       direction = 'descending';
@@ -250,6 +265,7 @@ export default function ConsultasPage() {
   const handleClearFilters = () => {
     setFilters(initialFilters);
     setHasSearched(false);
+    queryClient.setQueryData(['movimentacoes', filters], []);
     queryClient.setQueryData(['movimentacoes', initialFilters], []);
   };
 
@@ -450,10 +466,30 @@ export default function ConsultasPage() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Peça</TableHead>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('tipoMovimentacao')}>
+                        Tipo
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('pecaDescricao')}>
+                        Peça
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('clienteNome')}>
+                        Cliente
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
+                <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
+                        Status
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
                 <TableHead className="w-[80px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
