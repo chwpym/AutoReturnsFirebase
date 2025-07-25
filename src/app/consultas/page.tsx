@@ -183,7 +183,7 @@ export default function ConsultasPage() {
           <CardTitle className="flex items-center gap-2"><Search className="h-6 w-6"/> Consultar Movimentações</CardTitle>
           <CardDescription>Use os filtros para encontrar devoluções e garantias.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Linha 1 */}
                 <div className="space-y-2">
@@ -295,7 +295,7 @@ export default function ConsultasPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: PD123"/>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: 806"/>
                 </div>
                 <div className="flex items-end justify-start gap-2">
                     <Button onClick={handleSearch} disabled={isLoadingData}>
@@ -380,3 +380,5 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
+    
