@@ -13,7 +13,7 @@ import {
   doc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao, Cliente, Fornecedor, Peca } from '@/types/firestore';
+import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao } from '@/types/firestore';
 import {
   Card,
   CardContent,
@@ -44,13 +44,15 @@ import {
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Calendar } from '@/components/ui/calendar';
 import { Badge } from '@/components/ui/badge';
 import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download, Car } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -71,11 +73,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { GarantiaForm } from '../movimentacoes/garantia/[id]/page';
 import { DevolucaoForm } from '../movimentacoes/devolucao/[id]/page';
 import Papa from 'papaparse';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import type { UserOptions } from 'jspdf-autotable';
 
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDFWithAutoTable;
+}
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
   switch (status) {
@@ -172,6 +180,20 @@ const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => 
     );
 };
 
+const reportColumns = [
+    { id: 'dataMovimentacao', label: 'Data' },
+    { id: 'tipoMovimentacao', label: 'Tipo' },
+    { id: 'pecaCodigo', label: 'Cód. Peça' },
+    { id: 'pecaDescricao', label: 'Descrição Peça' },
+    { id: 'quantidade', label: 'Qtd' },
+    { id: 'clienteNome', label: 'Cliente' },
+    { id: 'mecanicoNome', label: 'Mecânico' },
+    { id: 'fornecedorNome', label: 'Fornecedor' },
+    { id: 'requisicaoVenda', label: 'Requisição Venda' },
+    { id: 'nfSaida', label: 'NF Saída' },
+    { id: 'acaoRetorno', label: 'Status Garantia' },
+];
+
 export default function ConsultasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -186,6 +208,11 @@ export default function ConsultasPage() {
   const [editingDevolucao, setEditingDevolucao] = React.useState<MovimentacaoDevolucao | null>(null);
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = React.useState(false);
 
+  const [isReportModalOpen, setIsReportModalOpen] = React.useState(false);
+  const [reportOptions, setReportOptions] = React.useState({
+    columns: reportColumns.map(c => c.id),
+    orientation: 'l' as 'p' | 'l',
+  });
 
   const {
     data: movimentacoes,
@@ -204,7 +231,6 @@ export default function ConsultasPage() {
     let sortableItems = [...(movimentacoes || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        // Special handling for 'acaoRetorno' which only exists on MovimentacaoGarantia
         if (sortConfig.key === 'acaoRetorno') {
             const valA = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
             const valB = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
@@ -290,7 +316,7 @@ export default function ConsultasPage() {
     setEditingGarantia(null);
     setIsDevolucaoModalOpen(false);
     setEditingDevolucao(null);
-    refetch(); // Re-fetch data to show updated info
+    refetch(); 
   }
 
   const handleDelete = async (id: string) => {
@@ -311,9 +337,62 @@ export default function ConsultasPage() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleGeneratePdf = () => {
+    if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
+      toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
+      return;
+    }
+    
+    const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
+
+    doc.setFontSize(18);
+    doc.text('Relatório de Movimentações', 14, 22);
+    doc.setFontSize(11);
+    doc.setTextColor(100);
+    const filtersSummary = appliedFiltersList();
+    if (filtersSummary) {
+      doc.text(`Filtros Aplicados: ${filtersSummary}`, 14, 30);
+    }
+
+    const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
+    const head = [selectedColumns.map(c => c.label)];
+    const body = sortedMovimentacoes.map(mov => {
+      return selectedColumns.map(col => {
+        const key = col.id as keyof Movimentacao;
+        let value: any = mov[key];
+
+        if (value instanceof Timestamp) {
+            return format(value.toDate(), 'dd/MM/yy HH:mm');
+        }
+        if (key === 'fornecedorNome' && mov.tipoMovimentacao === 'Devolução') {
+            return 'N/A';
+        }
+        if (key === 'acaoRetorno' && mov.tipoMovimentacao === 'Devolução') {
+            return 'N/A';
+        }
+        return value || '-';
+      });
+    });
+
+    doc.autoTable({
+      head: head,
+      body: body,
+      startY: 35,
+      didDrawPage: (data) => {
+        const pageCount = doc.internal.pages.length;
+        doc.setFontSize(10);
+        doc.text(
+          `Página ${data.pageNumber} de ${pageCount - 1}`,
+          data.settings.margin.left,
+          doc.internal.pageSize.height - 10
+        );
+      },
+    });
+
+    doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
+    setIsReportModalOpen(false);
   };
+
 
   const handleExportCSV = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
@@ -337,7 +416,7 @@ export default function ConsultasPage() {
     }));
 
     const csv = Papa.unparse(dataToExport);
-    const bom = "\uFEFF"; // UTF-8 Byte Order Mark
+    const bom = "\uFEFF"; 
     const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -358,7 +437,6 @@ export default function ConsultasPage() {
     if (filters.pecaCodigo) list.push(`Cód. Peça: ${filters.pecaCodigo}`);
     if (filters.requisicaoVenda) list.push(`Requisição: ${filters.requisicaoVenda}`);
     if (filters.numeroNF) list.push(`NF: ${filters.numeroNF}`);
-    // We don't show IDs for Cliente/Mecanico/Fornecedor as they aren't user-friendly
     return list.join('  •  ');
   }
 
@@ -366,22 +444,8 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-       <div id="print-header" className="print-only">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Car className="h-8 w-8 text-primary" />
-            <span className="font-semibold tracking-tight text-lg">AutoReturns</span>
-          </div>
-          <div className="text-right text-xs text-muted-foreground">
-            <div>AutoReturns Inc.</div>
-            <div>(11) 99999-9999</div>
-            <div>www.autoreturns.com.br</div>
-          </div>
-        </div>
-        <hr className="my-4" />
-      </div>
-
-      <Card className='no-print'>
+       
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Search className="h-6 w-6" /> Consultas e Relatórios
@@ -392,7 +456,6 @@ export default function ConsultasPage() {
         </CardHeader>
         <CardContent>
            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Linha 1 */}
             <div className="space-y-2">
               <Label>Tipo de Movimentação</Label>
               <Select
@@ -451,8 +514,6 @@ export default function ConsultasPage() {
                 </PopoverContent>
               </Popover>
             </div>
-
-            {/* Linha 2 */}
             <div className="space-y-2">
               <Label>Cliente</Label>
               <SearchCombobox
@@ -495,7 +556,6 @@ export default function ConsultasPage() {
               />
             </div>
 
-            {/* Linha 3 */}
             <div className="space-y-2">
               <Label htmlFor="requisicaoVenda">Nº da Requisição</Label>
               <Input
@@ -539,7 +599,7 @@ export default function ConsultasPage() {
 
       <Card id="report-section">
         <CardHeader>
-            <div className="flex justify-between items-center no-print">
+            <div className="flex justify-between items-center">
                 <div>
                     <CardTitle>Resultados da Busca</CardTitle>
                     <CardDescription>
@@ -549,21 +609,15 @@ export default function ConsultasPage() {
                     </CardDescription>
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" onClick={handlePrint} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
+                    <Button variant="outline" onClick={() => setIsReportModalOpen(true)} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
                         <Printer className="mr-2 h-4 w-4" />
-                        Imprimir Relatório
+                        Gerar Relatório
                     </Button>
                     <Button variant="outline" onClick={handleExportCSV} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         Exportar para CSV
                     </Button>
                 </div>
-            </div>
-            <div className="print-only report-header">
-                <h2 className="text-xl font-semibold">Relatório de Movimentações</h2>
-                <p className="text-sm text-muted-foreground">
-                    {appliedFiltersList() || 'Nenhum filtro aplicado.'}
-                </p>
             </div>
         </CardHeader>
         <CardContent>
@@ -606,7 +660,7 @@ export default function ConsultasPage() {
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                 </TableHead>
-                <TableHead className="w-[80px] text-right no-print">Ações</TableHead>
+                <TableHead className="w-[80px] text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -650,7 +704,7 @@ export default function ConsultasPage() {
                         '-'
                       )}
                     </TableCell>
-                    <TableCell className="text-right no-print">
+                    <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" className="h-8 w-8 p-0">
@@ -705,7 +759,7 @@ export default function ConsultasPage() {
       
       {editingGarantia && (
         <Dialog open={isGarantiaModalOpen} onOpenChange={setIsGarantiaModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto no-print">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
                     <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
@@ -721,7 +775,7 @@ export default function ConsultasPage() {
 
       {editingDevolucao && (
         <Dialog open={isDevolucaoModalOpen} onOpenChange={setIsDevolucaoModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto no-print">
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Editar Registro de Devolução</DialogTitle>
                     <DialogDescription>Altere os dados do registro de devolução.</DialogDescription>
@@ -734,7 +788,64 @@ export default function ConsultasPage() {
             </DialogContent>
         </Dialog>
       )}
-       <div id="print-footer" className="print-only"></div>
+
+      <Dialog open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Opções do Relatório</DialogTitle>
+            <DialogDescription>
+              Selecione as colunas e a orientação para gerar o seu relatório em PDF.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+            <div>
+              <Label className="font-semibold">Colunas do Relatório</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2 max-h-60 overflow-y-auto pr-2">
+                {reportColumns.map(col => (
+                  <div key={col.id} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`col-${col.id}`}
+                      checked={reportOptions.columns.includes(col.id)}
+                      onCheckedChange={(checked) => {
+                        setReportOptions(prev => ({
+                          ...prev,
+                          columns: checked
+                            ? [...prev.columns, col.id]
+                            : prev.columns.filter(c => c !== col.id),
+                        }));
+                      }}
+                    />
+                    <label htmlFor={`col-${col.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      {col.label}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <Label className="font-semibold">Orientação da Página</Label>
+              <RadioGroup
+                value={reportOptions.orientation}
+                onValueChange={(value: 'p' | 'l') => setReportOptions(prev => ({ ...prev, orientation: value }))}
+                className="mt-2 space-y-1"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="l" id="landscape" />
+                  <Label htmlFor="landscape">Paisagem (Landscape)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="p" id="portrait" />
+                  <Label htmlFor="portrait">Retrato (Portrait)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReportModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleGeneratePdf}>Gerar PDF</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
