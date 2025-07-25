@@ -14,7 +14,7 @@ import { ArrowRight, Package, ShieldCheck, History, Users, Wrench } from 'lucide
 import type { LucideIcon } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
-import { collection, query, where, getCountFromServer, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getCountFromServer, Timestamp, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useToast } from '@/hooks/use-toast';
 
@@ -78,14 +78,25 @@ const fetchDevolucoesMes = async () => {
     const today = new Date();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
+
+    // Query for all returns and filter by date on the client side to avoid composite index requirement.
     const q = query(
         collection(db, 'movimentacoes'),
         where('tipoMovimentacao', '==', 'Devolução'),
-        where('dataMovimentacao', '>=', Timestamp.fromDate(startOfMonth)),
-        where('dataMovimentacao', '<=', Timestamp.fromDate(endOfMonth))
     );
-    const snapshot = await getCountFromServer(q);
-    return snapshot.data().count;
+
+    const querySnapshot = await getDocs(q);
+    
+    let count = 0;
+    querySnapshot.forEach(doc => {
+        const data = doc.data();
+        const dataMovimentacao = data.dataMovimentacao.toDate();
+        if (dataMovimentacao >= startOfMonth && dataMovimentacao <= endOfMonth) {
+            count++;
+        }
+    });
+    
+    return count;
 };
 
 const fetchGarantiasPendentes = async () => {
