@@ -547,7 +547,7 @@ export default function ConsultasPage() {
                     <TableCell>
                       <div className="font-medium">{mov.pecaDescricao}</div>
                       <div className="text-xs text-muted-foreground">
-                        {mov.pecaCodigo}
+                        Cód: {mov.pecaCodigo}
                       </div>
                     </TableCell>
                     <TableCell>{mov.clienteNome}</TableCell>
