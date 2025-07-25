@@ -97,6 +97,7 @@ const initialFilters: Filters = {
 const fetchMovimentacoes = async (filters: Filters) => {
     const collectionRef = collection(db, 'movimentacoes');
     const constraints: QueryConstraint[] = [];
+    let applyOrderBy = true;
 
     if (filters.tipoMovimentacao !== 'Todas') {
       constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
@@ -114,26 +115,35 @@ const fetchMovimentacoes = async (filters: Filters) => {
     }
     if (filters.clienteId) {
       constraints.push(where('clienteId', '==', filters.clienteId));
+      applyOrderBy = false;
     }
      if (filters.mecanicoId) {
       constraints.push(where('mecanicoId', '==', filters.mecanicoId));
+      applyOrderBy = false;
     }
      if (filters.fornecedorId && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
       constraints.push(where('fornecedorId', '==', filters.fornecedorId));
+      applyOrderBy = false;
     }
     if (filters.codigoPeca) {
       constraints.push(where('pecaCodigo', '==', filters.codigoPeca));
+      applyOrderBy = false;
     }
     if(filters.requisicaoVenda) {
         constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
+        applyOrderBy = false;
     }
     if(filters.numeroNF) {
-        // As Firestore has limitations on OR queries, we search in nfSaida.
-        // For a more complex search, multiple queries would be needed.
         constraints.push(where('nfSaida', '==', filters.numeroNF));
+        applyOrderBy = false;
+    }
+    
+    const finalConstraints = [...constraints];
+    if (applyOrderBy) {
+        finalConstraints.push(orderBy('dataMovimentacao', 'desc'));
     }
 
-    const q = query(collectionRef, ...constraints, orderBy('dataMovimentacao', 'desc'));
+    const q = query(collectionRef, ...finalConstraints);
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Movimentacao));
 }
@@ -261,7 +271,7 @@ export default function ConsultasPage() {
                         collectionName="clientes"
                         labelField="nomeRazaoSocial"
                         searchField="nomeRazaoSocial"
-                        queryConstraints={[]}
+                        queryConstraints={[where('tipo.mecanico', '==', true)]}
                         placeholder="Buscar mecânico..."
                         emptyMessage="Nenhum mecânico encontrado."
                         value={filters.mecanicoId ?? null}
@@ -295,7 +305,7 @@ export default function ConsultasPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: 806"/>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: PD123"/>
                 </div>
                 <div className="flex items-end justify-start gap-2">
                     <Button onClick={handleSearch} disabled={isLoadingData}>
@@ -380,5 +390,3 @@ export default function ConsultasPage() {
     </div>
   );
 }
-
-    
