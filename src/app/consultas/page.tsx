@@ -116,6 +116,7 @@ const initialFilters: Filters = {
 const fetchMovimentacoes = async (filters: Filters) => {
   const collectionRef = collection(db, 'movimentacoes');
   let constraints: QueryConstraint[] = [];
+  
   let applyOrderBy = true;
 
   if (filters.tipoMovimentacao !== 'Todas') {
@@ -170,8 +171,7 @@ const fetchMovimentacoes = async (filters: Filters) => {
     constraints.push(where('nfSaida', '==', filters.numeroNF));
     applyOrderBy = false;
   }
-
-  // Only apply order by when no specific text filters are used to avoid composite index errors
+  
   if (applyOrderBy) {
     constraints.push(orderBy('dataMovimentacao', 'desc'));
   }
@@ -188,20 +188,24 @@ export default function ConsultasPage() {
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
-  const [submittedFilters, setSubmittedFilters] = React.useState<Filters | null>(
-    null
-  );
 
   const {
     data: movimentacoes,
     isLoading,
     isError,
     isFetching,
+    refetch,
   } = useQuery({
-    queryKey: ['movimentacoes', submittedFilters],
-    queryFn: () => fetchMovimentacoes(submittedFilters!),
-    enabled: !!submittedFilters,
+    queryKey: ['movimentacoes', filters],
+    queryFn: () => fetchMovimentacoes(filters),
+    enabled: false, // Busca manual
+    refetchOnWindowFocus: false, // Busca manual
   });
+
+  React.useEffect(() => {
+    refetch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   React.useEffect(() => {
     if (isError) {
@@ -221,13 +225,9 @@ export default function ConsultasPage() {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSearch = () => {
-    setSubmittedFilters(filters);
-  };
-
   const handleClearFilters = () => {
     setFilters(initialFilters);
-    setSubmittedFilters(null);
+    refetch();
   };
 
   const handleDelete = async (id: string) => {
@@ -237,7 +237,7 @@ export default function ConsultasPage() {
         title: 'Registro Excluído',
         description: 'A movimentação foi excluída com sucesso.',
       });
-      queryClient.invalidateQueries({ queryKey: ['movimentacoes', submittedFilters] });
+      refetch();
     } catch (error) {
       console.error('Error deleting movimentacao:', error);
       toast({
@@ -389,6 +389,7 @@ export default function ConsultasPage() {
                 value={filters.mecanicoId ?? null}
                 onChange={(v) => handleFilterChange('mecanicoId', v)}
                 className="w-full"
+                queryConstraints={[where('tipo.mecanico', '==', true)]}
               />
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -439,7 +440,7 @@ export default function ConsultasPage() {
                 />
             </div>
             <div className="flex items-end justify-start gap-2">
-              <Button onClick={handleSearch} disabled={isLoadingData}>
+              <Button onClick={() => refetch()} disabled={isLoadingData}>
                 {isLoadingData ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
@@ -460,152 +461,150 @@ export default function ConsultasPage() {
         </CardContent>
       </Card>
 
-      {submittedFilters && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Resultados da Busca</CardTitle>
-            <CardDescription>
-              {movimentacoes
-                ? `${movimentacoes.length} resultado(s) encontrado(s).`
-                : 'Aguardando busca...'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Peça</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="w-[80px] text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoadingData ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Resultados da Busca</CardTitle>
+          <CardDescription>
+            {movimentacoes
+              ? `${movimentacoes.length} resultado(s) encontrado(s).`
+              : 'Buscando...'}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Tipo</TableHead>
+                <TableHead>Peça</TableHead>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[80px] text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoadingData ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Skeleton className="h-5 w-3/4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-1/2" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-full" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-3/4" />
+                    </TableCell>
+                    <TableCell>
+                      <Skeleton className="h-5 w-1/2" />
+                    </TableCell>
                       <TableCell>
-                        <Skeleton className="h-5 w-3/4" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-1/2" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-full" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-3/4" />
-                      </TableCell>
-                      <TableCell>
-                        <Skeleton className="h-5 w-1/2" />
-                      </TableCell>
-                       <TableCell>
-                        <Skeleton className="h-8 w-8 ml-auto" />
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : movimentacoes && movimentacoes.length > 0 ? (
-                  movimentacoes.map((mov) => (
-                    <TableRow key={mov.id}>
-                      <TableCell>
-                        {mov.dataMovimentacao.toDate().toLocaleString('pt-BR')}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            mov.tipoMovimentacao === 'Garantia'
-                              ? 'secondary'
-                              : 'outline'
-                          }
-                        >
-                          {mov.tipoMovimentacao}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{mov.pecaDescricao}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {mov.pecaCodigo}
-                        </div>
-                      </TableCell>
-                      <TableCell>{mov.clienteNome}</TableCell>
-                      <TableCell>
-                        {mov.tipoMovimentacao === 'Garantia' ? (
-                          <Badge
-                            variant={getStatusVariant(
-                              (mov as MovimentacaoGarantia).acaoRetorno
-                            )}
-                          >
-                            {(mov as MovimentacaoGarantia).acaoRetorno}
-                          </Badge>
-                        ) : (
-                          '-'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                               <Link href={`/movimentacoes/${mov.tipoMovimentacao.toLowerCase()}/${mov.id}`}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
-                               </Link>
-                            </DropdownMenuItem>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  onSelect={(e) => e.preventDefault()}
-                                  className="text-red-600"
-                                >
-                                  <Trash className="mr-2 h-4 w-4" />
-                                  Excluir
-                                </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Confirma a exclusão?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita. O registro será
-                                    permanentemente excluído.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(mov.id!)}
-                                    className="bg-red-600 hover:bg-red-700"
-                                  >
-                                    Sim, excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="h-24 text-center">
-                      Nenhum resultado encontrado para os filtros aplicados.
+                      <Skeleton className="h-8 w-8 ml-auto" />
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+                ))
+              ) : movimentacoes && movimentacoes.length > 0 ? (
+                movimentacoes.map((mov) => (
+                  <TableRow key={mov.id}>
+                    <TableCell>
+                      {mov.dataMovimentacao.toDate().toLocaleString('pt-BR')}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          mov.tipoMovimentacao === 'Garantia'
+                            ? 'secondary'
+                            : 'outline'
+                        }
+                      >
+                        {mov.tipoMovimentacao}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{mov.pecaDescricao}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {mov.pecaCodigo}
+                      </div>
+                    </TableCell>
+                    <TableCell>{mov.clienteNome}</TableCell>
+                    <TableCell>
+                      {mov.tipoMovimentacao === 'Garantia' ? (
+                        <Badge
+                          variant={getStatusVariant(
+                            (mov as MovimentacaoGarantia).acaoRetorno
+                          )}
+                        >
+                          {(mov as MovimentacaoGarantia).acaoRetorno}
+                        </Badge>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem asChild>
+                              <Link href={`/movimentacoes/${mov.tipoMovimentacao.toLowerCase()}/${mov.id}`}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                              </Link>
+                          </DropdownMenuItem>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <DropdownMenuItem
+                                onSelect={(e) => e.preventDefault()}
+                                className="text-red-600"
+                              >
+                                <Trash className="mr-2 h-4 w-4" />
+                                Excluir
+                              </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Confirma a exclusão?
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Esta ação não pode ser desfeita. O registro será
+                                  permanentemente excluído.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleDelete(mov.id!)}
+                                  className="bg-red-600 hover:bg-red-700"
+                                >
+                                  Sim, excluir
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Nenhum resultado encontrado para os filtros aplicados.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
