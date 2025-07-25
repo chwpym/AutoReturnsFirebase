@@ -295,9 +295,9 @@ export default function ConsultasPage() {
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: PD123"/>
                 </div>
-                <div className="flex items-end justify-end gap-2">
+                <div className="flex items-end justify-start gap-2">
                     <Button onClick={handleSearch} disabled={isLoadingData}>
                         {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         Filtrar
