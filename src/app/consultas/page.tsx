@@ -232,19 +232,15 @@ export default function ConsultasPage() {
     let sortableItems = [...(movimentacoes || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        
         let aValue: any;
         let bValue: any;
-
+  
         if (sortConfig.key === 'acaoRetorno') {
           aValue = a.tipoMovimentacao === 'Garantia' ? a.acaoRetorno : '';
           bValue = b.tipoMovimentacao === 'Garantia' ? b.acaoRetorno : '';
-        } else if (sortConfig.key in a && sortConfig.key in b) {
-          aValue = a[sortConfig.key as keyof typeof a];
-          bValue = b[sortConfig.key as keyof typeof b];
         } else {
-            aValue = '';
-            bValue = '';
+          aValue = (a as any)[sortConfig.key];
+          bValue = (b as any)[sortConfig.key];
         }
         
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
@@ -342,7 +338,7 @@ export default function ConsultasPage() {
     }
   };
 
-  const toBase64 = (file: Blob): Promise<string> => new Promise((resolve, reject) => {
+  const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = () => resolve(reader.result as string);
@@ -354,108 +350,101 @@ export default function ConsultasPage() {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
-
+  
     let logoBase64 = '';
     try {
       const response = await fetch('/images/logo.png');
+      if (!response.ok) throw new Error('Logo not found');
       const blob = await response.blob();
-      logoBase64 = await toBase64(blob);
+      logoBase64 = await toBase64(new File([blob], "logo.png", {type: "image/png"}));
     } catch (error) {
       console.error("Error loading logo, proceeding without it.", error);
       toast({ title: "Logo não encontrado", description: "O relatório será gerado sem o logo da empresa.", variant: "destructive" });
     }
-    
+  
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14; 
+  
+    if (logoBase64) {
+      doc.addImage(logoBase64, 'PNG', margin, 10, 40, 15);
+    }
+  
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Original Auto Peças', margin + 45, 15, { align: 'left' });
     
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", margin + 45, 20, { align: 'left' });
+    doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", margin + 45, 24, { align: 'left' });
+  
+    const filtersSummary = appliedFiltersList();
+    if (filtersSummary) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Filtros Aplicados: `, margin, 34);
+      doc.setFont('helvetica', 'normal');
+      doc.text(filtersSummary, margin + doc.getTextWidth('Filtros Aplicados: '), 34);
+    }
+  
+    doc.setDrawColor(180, 180, 180);
+    doc.line(margin, 40, pageWidth - margin, 40);
+  
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
     const head = [selectedColumns.map(c => c.label)];
     const body = sortedMovimentacoes.map(mov => {
       return selectedColumns.map(col => {
-          const key = col.id as keyof Movimentacao;
-          let value: any = '-';
-
-          if (mov.tipoMovimentacao === 'Garantia') {
-            const garantiaMov = mov as MovimentacaoGarantia;
-            if (col.id === 'fornecedorNome') value = garantiaMov.fornecedorNome;
-            else if (col.id === 'acaoRetorno') value = garantiaMov.acaoRetorno;
-            else if (key in garantiaMov) value = garantiaMov[key as keyof typeof garantiaMov];
-          } else {
-             if (col.id === 'fornecedorNome') value = 'N/A';
-             else if (col.id === 'acaoRetorno') value = 'N/A';
-             else if (key in mov) value = mov[key as keyof typeof mov];
-          }
-          
-          if (value instanceof Timestamp) {
-              value = format(value.toDate(), 'dd/MM/yy HH:mm');
-          } else if (value !== null && value !== undefined) {
-              value = String(value);
-          } else {
-              value = '-';
-          }
-          return value;
+        let value: any = '-';
+  
+        if (col.id === 'fornecedorNome') {
+          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+        } else if (col.id === 'acaoRetorno') {
+          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
+        } else if (col.id in mov) {
+          value = (mov as any)[col.id];
+        }
+  
+        if (value instanceof Timestamp) {
+          value = format(value.toDate(), 'dd/MM/yy HH:mm');
+        } else if (value !== null && value !== undefined) {
+          value = String(value);
+        } else {
+          value = '-';
+        }
+        return value;
       });
     });
-
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const pageWidth = doc.internal.pageSize.getWidth();
-
+  
     doc.autoTable({
       head: head,
       body: body,
       startY: 45,
       didDrawPage: (data) => {
-        // HEADER
-        if (logoBase64) {
-          doc.addImage(logoBase64, 'PNG', data.settings.margin.left, 10, 40, 15);
-        }
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Original Auto Peças', data.settings.margin.left + 45, 15);
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", data.settings.margin.left + 45, 20);
-        doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", data.settings.margin.left + 45, 24);
-        
-        const filtersSummary = appliedFiltersList();
-        if (filtersSummary) {
-          doc.setFontSize(9);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`Filtros Aplicados: `, 14, 34);
-          doc.setFont('helvetica', 'normal');
-          doc.text(filtersSummary, 14 + doc.getTextWidth('Filtros Aplicados: '), 34);
-        }
-
         doc.setDrawColor(180, 180, 180);
-        doc.line(data.settings.margin.left, 40, pageWidth - data.settings.margin.right, 40);
-
-
-        // FOOTER
-        const pageCount = doc.internal.pages.length;
-        doc.setDrawColor(180, 180, 180);
-        doc.line(data.settings.margin.left, pageHeight - 15, pageWidth - data.settings.margin.right, pageHeight - 15);
-
+        doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+  
         doc.setFontSize(8);
         doc.text(
           `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-          data.settings.margin.left,
+          margin,
           pageHeight - 10
         );
         doc.text(
-          `Página ${data.pageNumber} de ${pageCount}`,
-          pageWidth - data.settings.margin.right,
+          `Página ${data.pageNumber} de ${doc.internal.pages.length}`,
+          pageWidth - margin,
           pageHeight - 10,
           { align: 'right' }
         );
       },
-      margin: { top: 45, bottom: 20 }
+      margin: { top: 45, right: margin, bottom: 20, left: margin }
     });
-
+  
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
   };
-
+  
 
   const handleExportCSV = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
