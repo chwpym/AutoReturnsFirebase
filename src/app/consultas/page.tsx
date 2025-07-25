@@ -184,7 +184,7 @@ export default function ConsultasPage() {
           <CardDescription>Use os filtros para encontrar devoluções e garantias.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-2">
                     <Label>Tipo de Movimentação</Label>
                     <Select value={filters.tipoMovimentacao} onValueChange={(v) => handleFilterChange('tipoMovimentacao', v as Filters['tipoMovimentacao'])}>
@@ -265,7 +265,7 @@ export default function ConsultasPage() {
                     />
                 </div>
                  {(filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas') && (
-                    <div className="space-y-2">
+                     <div className="space-y-2 lg:col-span-2">
                         <Label>Fornecedor</Label>
                         <SearchCombobox
                             collectionName="fornecedores"
@@ -279,10 +279,6 @@ export default function ConsultasPage() {
                         />
                     </div>
                 )}
-                <div className="space-y-2">
-                    <Label htmlFor="codigoPeca">Código da Peça</Label>
-                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
-                </div>
                  <div className="space-y-2">
                     <Label htmlFor="requisicaoVenda">Nº da Requisição</Label>
                     <Input id="requisicaoVenda" value={filters.requisicaoVenda} onChange={(e) => handleFilterChange('requisicaoVenda', e.target.value)} placeholder="Ex: 12345"/>
@@ -292,17 +288,24 @@ export default function ConsultasPage() {
                     <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
                 </div>
             </div>
+            <div className="flex items-end gap-4 pt-4">
+                 <div className="flex-1 space-y-2">
+                    <Label htmlFor="codigoPeca">Código da Peça</Label>
+                    <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
+                </div>
+                <div className="flex-shrink-0 flex items-end gap-2">
+                    <Button onClick={handleSearch} disabled={isLoadingData}>
+                        {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        Filtrar
+                    </Button>
+                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
+                        <X className="mr-2 h-4 w-4" />
+                        Limpar
+                    </Button>
+                </div>
+            </div>
+
         </CardContent>
-        <CardFooter className="gap-2">
-            <Button onClick={handleSearch} disabled={isLoadingData}>
-                {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Filtrar
-            </Button>
-            <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
-                <X className="mr-2 h-4 w-4" />
-                Limpar Filtros
-            </Button>
-        </CardFooter>
       </Card>
       
       {submittedFilters && (
@@ -374,3 +377,5 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
+    
