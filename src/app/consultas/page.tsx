@@ -358,19 +358,27 @@ export default function ConsultasPage() {
     const head = [selectedColumns.map(c => c.label)];
     const body = sortedMovimentacoes.map(mov => {
       return selectedColumns.map(col => {
-        const key = col.id as keyof Movimentacao;
-        let value: any = mov[key];
+          const key = col.id as keyof Movimentacao;
+          let value: any = '-';
 
-        if (value instanceof Timestamp) {
-            return format(value.toDate(), 'dd/MM/yy HH:mm');
-        }
-        if (key === 'fornecedorNome' && mov.tipoMovimentacao === 'Devolução') {
-            return 'N/A';
-        }
-        if (key === 'acaoRetorno' && mov.tipoMovimentacao === 'Devolução') {
-            return 'N/A';
-        }
-        return value || '-';
+          if (key in mov) {
+              const movValue = mov[key as keyof typeof mov];
+              if (movValue instanceof Timestamp) {
+                  value = format(movValue.toDate(), 'dd/MM/yy HH:mm');
+              } else if (movValue !== null && movValue !== undefined) {
+                  value = movValue;
+              }
+          }
+          
+          if (key === 'fornecedorNome') {
+              value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+          }
+          
+          if (key === 'acaoRetorno') {
+              value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
+          }
+
+          return value;
       });
     });
 
@@ -380,12 +388,14 @@ export default function ConsultasPage() {
       startY: 35,
       didDrawPage: (data) => {
         const pageCount = doc.internal.pages.length;
-        doc.setFontSize(10);
-        doc.text(
-          `Página ${data.pageNumber} de ${pageCount - 1}`,
-          data.settings.margin.left,
-          doc.internal.pageSize.height - 10
-        );
+        if (pageCount > 1) {
+          doc.setFontSize(10);
+          doc.text(
+            `Página ${data.pageNumber} de ${doc.internal.pages.length -1}`,
+            data.settings.margin.left,
+            doc.internal.pageSize.height - 10
+          );
+        }
       },
     });
 
