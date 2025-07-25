@@ -71,7 +71,10 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import Link from 'next/link';
+import { GarantiaForm } from '../movimentacoes/garantia/[id]/page';
+
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
   switch (status) {
@@ -99,7 +102,7 @@ interface Filters {
   numeroNF: string;
 }
 
-type SortableKeys = 'dataMovimentacao' | 'tipoMovimentacao' | 'pecaDescricao' | 'clienteNome' | 'acaoRetorno';
+type SortableKeys = 'dataMovimentacao' | 'tipoMovimentacao' | 'pecaDescricao' | 'clienteNome' | 'acaoRetorno' | 'requisicaoVenda';
 
 type SortConfig = {
     key: SortableKeys;
@@ -174,6 +177,8 @@ export default function ConsultasPage() {
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'dataMovimentacao', direction: 'descending' });
+  const [editingMovimentacao, setEditingMovimentacao] = React.useState<Movimentacao | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
 
 
   const {
@@ -262,6 +267,17 @@ export default function ConsultasPage() {
     setSortConfig({ key: 'dataMovimentacao', direction: 'descending' });
     queryClient.removeQueries({ queryKey: ['movimentacoes'] });
   };
+
+  const handleEdit = (mov: Movimentacao) => {
+    setEditingMovimentacao(mov);
+    setIsEditModalOpen(true);
+  }
+
+  const handleEditSuccess = () => {
+    setIsEditModalOpen(false);
+    setEditingMovimentacao(null);
+    refetch(); // Re-fetch data to show updated info
+  }
 
   const handleDelete = async (id: string) => {
     try {
@@ -479,6 +495,12 @@ export default function ConsultasPage() {
                     </Button>
                 </TableHead>
                 <TableHead>
+                    <Button variant="ghost" onClick={() => requestSort('requisicaoVenda')}>
+                        Requisição
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                </TableHead>
+                <TableHead>
                     <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
                         Status
                         <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -495,6 +517,7 @@ export default function ConsultasPage() {
                     <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
                     <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
@@ -517,6 +540,7 @@ export default function ConsultasPage() {
                       </div>
                     </TableCell>
                     <TableCell>{mov.clienteNome}</TableCell>
+                    <TableCell>{mov.requisicaoVenda || '-'}</TableCell>
                     <TableCell>
                       {mov.tipoMovimentacao === 'Garantia' ? (
                         <Badge variant={getStatusVariant((mov as MovimentacaoGarantia).acaoRetorno)}>
@@ -535,12 +559,20 @@ export default function ConsultasPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                              <Link href={`/movimentacoes/${mov.tipoMovimentacao.toLowerCase()}/${mov.id}`}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                              </Link>
-                          </DropdownMenuItem>
+                          {mov.tipoMovimentacao === 'Devolução' ? (
+                             <DropdownMenuItem asChild>
+                                <Link href={`/movimentacoes/devolucao/${mov.id}`}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar
+                                </Link>
+                            </DropdownMenuItem>
+                          ) : (
+                             <DropdownMenuItem onSelect={() => handleEdit(mov)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                            </DropdownMenuItem>
+                          )}
+                         
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
@@ -570,7 +602,7 @@ export default function ConsultasPage() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
+                  <TableCell colSpan={7} className="h-24 text-center">
                     {hasSearched ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Use os filtros acima e clique em "Filtrar" para buscar.'}
                   </TableCell>
                 </TableRow>
@@ -579,6 +611,23 @@ export default function ConsultasPage() {
           </Table>
         </CardContent>
       </Card>
+      
+      {editingMovimentacao && editingMovimentacao.tipoMovimentacao === 'Garantia' && (
+        <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
+                    <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
+                </DialogHeader>
+                <GarantiaForm 
+                    movimentacaoId={editingMovimentacao.id} 
+                    onSaveSuccess={handleEditSuccess}
+                    onCancel={() => setIsEditModalOpen(false)}
+                />
+            </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 }
