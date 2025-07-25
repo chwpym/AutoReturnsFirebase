@@ -50,7 +50,7 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download, Car } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -337,7 +337,8 @@ export default function ConsultasPage() {
     }));
 
     const csv = Papa.unparse(dataToExport);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const bom = "\uFEFF"; // UTF-8 Byte Order Mark
+    const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -352,6 +353,20 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
+       <div id="print-header" className="print-only">
+        <div className="flex justify-between items-center border-b pb-4 mb-4">
+          <div className="flex items-center gap-2">
+            <Car className="h-8 w-8 text-primary" />
+            <span className="font-semibold tracking-tight text-lg">AutoReturns</span>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">
+            <div>AutoReturns Inc.</div>
+            <div>(11) 99999-9999</div>
+            <div>www.autoreturns.com.br</div>
+          </div>
+        </div>
+      </div>
+
       <Card className='no-print'>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -530,7 +545,7 @@ export default function ConsultasPage() {
                     </Button>
                 </div>
             </div>
-            <div className="print-only mt-4 border rounded-lg p-4">
+            <div className="print-only mt-4 border rounded-lg p-4 bg-gray-50">
               <h2 className="text-lg font-semibold mb-2">Relatório de Movimentações</h2>
               <h3 className="text-sm font-medium mb-2">Filtros Aplicados:</h3>
               <ul className="list-disc list-inside text-sm text-muted-foreground">
@@ -715,7 +730,7 @@ export default function ConsultasPage() {
             </DialogContent>
         </Dialog>
       )}
-
+       <div id="print-footer" className="print-only"></div>
     </div>
   );
 }
