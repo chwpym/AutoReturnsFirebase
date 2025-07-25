@@ -75,14 +75,19 @@ const devolucaoSchema = z.object({
 
 type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 
-const DevolucaoForm = ({ initialValues }: { initialValues?: Partial<DevolucaoFormValues> | null }) => {
+const DevolucaoForm = ({ initialValues }: { initialValues?: Partial<DevolucaoFormValues & {id: string}> | null }) => {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
   
-  const [clienteKey, setClienteKey] = React.useState(Date.now());
-  const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
+  const [clienteKey, setClienteKey] = React.useState<number | null>(null);
+  const [mecanicoKey, setMecanicoKey] = React.useState<number | null>(null);
   const isEditMode = !!initialValues?.id;
+
+  React.useEffect(() => {
+    setClienteKey(Date.now());
+    setMecanicoKey(Date.now());
+  }, []);
 
   const form = useForm<DevolucaoFormValues>({
     resolver: zodResolver(devolucaoSchema),
@@ -526,4 +531,3 @@ export default function DevolucaoPage() {
     </div>
   );
 }
-

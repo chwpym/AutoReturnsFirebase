@@ -90,9 +90,15 @@ export default function GarantiaPage() {
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
 
-  const [clienteKey, setClienteKey] = React.useState(Date.now());
-  const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
-  const [fornecedorKey, setFornecedorKey] = React.useState(Date.now());
+  const [clienteKey, setClienteKey] = React.useState<number | null>(null);
+  const [mecanicoKey, setMecanicoKey] = React.useState<number | null>(null);
+  const [fornecedorKey, setFornecedorKey] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    setClienteKey(Date.now());
+    setMecanicoKey(Date.now());
+    setFornecedorKey(Date.now());
+  }, []);
 
   const form = useForm<GarantiaFormValues>({
     resolver: zodResolver(garantiaSchema),
@@ -647,4 +653,3 @@ export default function GarantiaPage() {
     </div>
   );
 }
-

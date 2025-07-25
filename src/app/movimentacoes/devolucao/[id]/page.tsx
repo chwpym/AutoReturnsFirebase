@@ -78,9 +78,14 @@ function DevolucaoForm({ movimentacaoId }: DevolucaoFormProps) {
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
   const [loading, setLoading] = React.useState(!!movimentacaoId);
   
-  const [clienteKey, setClienteKey] = React.useState(Date.now());
-  const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
+  const [clienteKey, setClienteKey] = React.useState<number | null>(null);
+  const [mecanicoKey, setMecanicoKey] = React.useState<number | null>(null);
   const isEditMode = !!movimentacaoId;
+
+  React.useEffect(() => {
+    setClienteKey(Date.now());
+    setMecanicoKey(Date.now());
+  }, []);
 
   const form = useForm<DevolucaoFormValues>({
     resolver: zodResolver(devolucaoSchema),
