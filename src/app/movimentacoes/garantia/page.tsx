@@ -84,6 +84,7 @@ const garantiaSchema = z.object({
 
 type GarantiaFormValues = z.infer<typeof garantiaSchema>;
 
+
 export default function GarantiaPage() {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
@@ -646,3 +647,4 @@ export default function GarantiaPage() {
     </div>
   );
 }
+

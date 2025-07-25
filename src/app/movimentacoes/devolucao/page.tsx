@@ -75,13 +75,14 @@ const devolucaoSchema = z.object({
 
 type DevolucaoFormValues = z.infer<typeof devolucaoSchema>;
 
-export default function DevolucaoPage() {
+const DevolucaoForm = ({ initialValues }: { initialValues?: Partial<DevolucaoFormValues> | null }) => {
   const { toast } = useToast();
   const [pecaBuscaError, setPecaBuscaError] = React.useState('');
   const [pecaNaoEncontrada, setPecaNaoEncontrada] = React.useState(false);
   
   const [clienteKey, setClienteKey] = React.useState(Date.now());
   const [mecanicoKey, setMecanicoKey] = React.useState(Date.now());
+  const isEditMode = !!initialValues?.id;
 
   const form = useForm<DevolucaoFormValues>({
     resolver: zodResolver(devolucaoSchema),
@@ -94,6 +95,7 @@ export default function DevolucaoPage() {
       mecanicoId: '',
       requisicaoVenda: '',
       observacao: '',
+      ...initialValues,
     },
   });
 
@@ -138,7 +140,6 @@ export default function DevolucaoPage() {
       });
     }
   };
-
 
   const handleFormSubmit = async (data: DevolucaoFormValues) => {
     try {
@@ -199,24 +200,11 @@ export default function DevolucaoPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Undo2 className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Registrar Devolução de Peça
-          </h1>
-          <p className="text-muted-foreground">
-            Preencha os detalhes para registrar uma nova devolução.
-          </p>
-        </div>
-      </div>
-
-      <Card>
+    <Card>
         <CardHeader>
-          <CardTitle>Dados da Devolução</CardTitle>
+          <CardTitle>{isEditMode ? "Editar Devolução" : "Dados da Devolução"}</CardTitle>
           <CardDescription>
-            Informações sobre a peça, cliente e venda.
+            {isEditMode ? "Altere as informações necessárias." : "Informações sobre a peça, cliente e venda."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -510,12 +498,32 @@ export default function DevolucaoPage() {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit">Registrar Devolução</Button>
+                <Button type="submit">{isEditMode ? "Salvar Alterações" : "Registrar Devolução"}</Button>
               </div>
             </form>
           </Form>
         </CardContent>
       </Card>
+  )
+}
+
+
+export default function DevolucaoPage() {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Undo2 className="h-8 w-8 text-primary" />
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Registrar Devolução de Peça
+          </h1>
+          <p className="text-muted-foreground">
+            Preencha os detalhes para registrar uma nova devolução.
+          </p>
+        </div>
+      </div>
+      <DevolucaoForm />
     </div>
   );
 }
+
