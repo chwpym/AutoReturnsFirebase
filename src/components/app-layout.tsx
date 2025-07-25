@@ -78,10 +78,6 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             ))}
             </nav>
             
-            <div className="sidebar-footer">
-                {/* O ThemeToggle foi movido daqui para o header principal */}
-            </div>
-
         </aside>
         <main className="main-content">
             <header className="main-header flex items-center justify-between">
