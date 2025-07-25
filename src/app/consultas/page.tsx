@@ -113,74 +113,70 @@ const initialFilters: Filters = {
   numeroNF: '',
 };
 
-const fetchMovimentacoes = async (filters: Filters) => {
-  const collectionRef = collection(db, 'movimentacoes');
-  let constraints: QueryConstraint[] = [];
-  
-  let applyOrderBy = true;
+const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => {
+    const collectionRef = collection(db, 'movimentacoes');
+    let constraints: QueryConstraint[] = [];
 
-  if (filters.tipoMovimentacao !== 'Todas') {
-    constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
-  }
-  if (
-    filters.statusGarantia !== 'Todos' &&
-    (filters.tipoMovimentacao === 'Garantia' ||
-      filters.tipoMovimentacao === 'Todas')
-  ) {
-    constraints.push(where('acaoRetorno', '==', filters.statusGarantia));
-  }
-  if (filters.dataInicio) {
-    constraints.push(
-      where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio))
-    );
-    applyOrderBy = false;
-  }
-  if (filters.dataFim) {
-    const endOfDay = new Date(filters.dataFim);
-    endOfDay.setHours(23, 59, 59, 999);
-    constraints.push(
-      where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay))
-    );
-    applyOrderBy = false;
-  }
-  if (filters.clienteId) {
-    constraints.push(where('clienteId', '==', filters.clienteId));
-    applyOrderBy = false;
-  }
-  if (filters.mecanicoId) {
-    constraints.push(where('mecanicoId', '==', filters.mecanicoId));
-    applyOrderBy = false;
-  }
-  if (
-    filters.fornecedorId &&
-    (filters.tipoMovimentacao === 'Garantia' ||
-      filters.tipoMovimentacao === 'Todas')
-  ) {
-    constraints.push(where('fornecedorId', '==', filters.fornecedorId));
-    applyOrderBy = false;
-  }
-  if (filters.pecaCodigo) {
-    constraints.push(where('pecaCodigo', '==', filters.pecaCodigo));
-    applyOrderBy = false;
-  }
-  if (filters.requisicaoVenda) {
-    constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
-    applyOrderBy = false;
-  }
-  if (filters.numeroNF) {
-    constraints.push(where('nfSaida', '==', filters.numeroNF));
-    applyOrderBy = false;
-  }
-  
-  if (applyOrderBy) {
-    constraints.push(orderBy('dataMovimentacao', 'desc'));
-  }
+    // Check if any specific text/ID filter is active
+    const hasSpecificFilters =
+        !!filters.clienteId ||
+        !!filters.mecanicoId ||
+        !!filters.fornecedorId ||
+        !!filters.pecaCodigo ||
+        !!filters.requisicaoVenda ||
+        !!filters.numeroNF;
 
-  const q = query(collectionRef, ...constraints);
-  const querySnapshot = await getDocs(q);
-  return querySnapshot.docs.map(
-    (doc) => ({ id: doc.id, ...doc.data() } as Movimentacao)
-  );
+    if (filters.tipoMovimentacao !== 'Todas') {
+        constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
+    }
+    if (
+        filters.statusGarantia !== 'Todos' &&
+        (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')
+    ) {
+        constraints.push(where('acaoRetorno', '==', filters.statusGarantia));
+    }
+    if (filters.dataInicio) {
+        constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
+    }
+    if (filters.dataFim) {
+        const endOfDay = new Date(filters.dataFim);
+        endOfDay.setHours(23, 59, 59, 999);
+        constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
+    }
+    if (filters.clienteId) {
+        constraints.push(where('clienteId', '==', filters.clienteId));
+    }
+    if (filters.mecanicoId) {
+        constraints.push(where('mecanicoId', '==', filters.mecanicoId));
+    }
+    if (filters.fornecedorId && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
+        constraints.push(where('fornecedorId', '==', filters.fornecedorId));
+    }
+    if (filters.pecaCodigo) {
+        constraints.push(where('pecaCodigo', '==', filters.pecaCodigo));
+    }
+    if (filters.requisicaoVenda) {
+        constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
+    }
+    if (filters.numeroNF) {
+        constraints.push(where('nfSaida', '==', filters.numeroNF));
+    }
+
+    // Only apply orderBy if there are no specific text/ID filters
+    if (!hasSpecificFilters) {
+        constraints.push(orderBy('dataMovimentacao', 'desc'));
+    }
+
+    // If there are no constraints at all, return empty to avoid fetching all documents.
+    if (constraints.length === 0) {
+        return [];
+    }
+
+    const q = query(collectionRef, ...constraints);
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Movimentacao)
+    );
 };
 
 export default function ConsultasPage() {
@@ -188,6 +184,7 @@ export default function ConsultasPage() {
   const queryClient = useQueryClient();
 
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
+  const [hasSearched, setHasSearched] = React.useState(false);
 
   const {
     data: movimentacoes,
@@ -198,14 +195,9 @@ export default function ConsultasPage() {
   } = useQuery({
     queryKey: ['movimentacoes', filters],
     queryFn: () => fetchMovimentacoes(filters),
-    enabled: false, 
-    refetchOnWindowFocus: false, 
+    enabled: false,
+    refetchOnWindowFocus: false,
   });
-
-  React.useEffect(() => {
-    refetch();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   React.useEffect(() => {
     if (isError) {
@@ -226,15 +218,14 @@ export default function ConsultasPage() {
   };
 
   const handleSearch = () => {
+    setHasSearched(true);
     refetch();
   };
 
   const handleClearFilters = () => {
     setFilters(initialFilters);
-    // We need to pass the initialFilters to refetch immediately 
-    // because setState is async.
-    queryClient.setQueryData(['movimentacoes', initialFilters], []);
-    refetch();
+    setHasSearched(false);
+    queryClient.setQueryData(['movimentacoes', filters], []);
   };
 
   const handleDelete = async (id: string) => {
@@ -269,19 +260,15 @@ export default function ConsultasPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-             {/* Linha 1 */}
+           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+            {/* Linha 1 */}
             <div className="space-y-2">
               <Label>Tipo de Movimentação</Label>
               <Select
                 value={filters.tipoMovimentacao}
-                onValueChange={(v) =>
-                  handleFilterChange('tipoMovimentacao', v as any)
-                }
+                onValueChange={(v) => handleFilterChange('tipoMovimentacao', v as any)}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Todas">Todas</SelectItem>
                   <SelectItem value="Devolução">Devolução</SelectItem>
@@ -289,19 +276,14 @@ export default function ConsultasPage() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Status da Garantia</Label>
               <Select
                 value={filters.statusGarantia}
-                onValueChange={(v) =>
-                  handleFilterChange('statusGarantia', v as any)
-                }
+                onValueChange={(v) => handleFilterChange('statusGarantia', v as any)}
                 disabled={filters.tipoMovimentacao === 'Devolução'}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Todos">Todos</SelectItem>
                   <SelectItem value="Pendente">Pendente</SelectItem>
@@ -310,63 +292,31 @@ export default function ConsultasPage() {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Data de Início</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !filters.dataInicio && 'text-muted-foreground'
-                    )}
-                  >
+                  <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !filters.dataInicio && 'text-muted-foreground')}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dataInicio ? (
-                      format(filters.dataInicio, 'PPP', { locale: ptBR })
-                    ) : (
-                      <span>Escolha a data</span>
-                    )}
+                    {filters.dataInicio ? format(filters.dataInicio, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dataInicio}
-                    onSelect={(d) => handleFilterChange('dataInicio', d)}
-                    initialFocus
-                  />
+                  <Calendar mode="single" selected={filters.dataInicio} onSelect={(d) => handleFilterChange('dataInicio', d)} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
-
             <div className="space-y-2">
               <Label>Data de Fim</Label>
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      'w-full justify-start text-left font-normal',
-                      !filters.dataFim && 'text-muted-foreground'
-                    )}
-                  >
+                  <Button variant="outline" className={cn('w-full justify-start text-left font-normal', !filters.dataFim && 'text-muted-foreground')}>
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {filters.dataFim ? (
-                      format(filters.dataFim, 'PPP', { locale: ptBR })
-                    ) : (
-                      <span>Escolha a data</span>
-                    )}
+                    {filters.dataFim ? format(filters.dataFim, 'PPP', { locale: ptBR }) : <span>Escolha a data</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={filters.dataFim}
-                    onSelect={(d) => handleFilterChange('dataFim', d)}
-                    initialFocus
-                  />
+                  <Calendar mode="single" selected={filters.dataFim} onSelect={(d) => handleFilterChange('dataFim', d)} initialFocus />
                 </PopoverContent>
               </Popover>
             </div>
@@ -420,9 +370,7 @@ export default function ConsultasPage() {
               <Input
                 id="requisicaoVenda"
                 value={filters.requisicaoVenda}
-                onChange={(e) =>
-                  handleFilterChange('requisicaoVenda', e.target.value)
-                }
+                onChange={(e) => handleFilterChange('requisicaoVenda', e.target.value)}
                 placeholder="Ex: 12345"
               />
             </div>
@@ -431,35 +379,25 @@ export default function ConsultasPage() {
               <Input
                 id="numeroNF"
                 value={filters.numeroNF}
-                onChange={(e) =>
-                  handleFilterChange('numeroNF', e.target.value)
-                }
+                onChange={(e) => handleFilterChange('numeroNF', e.target.value)}
                 placeholder="Ex: 9876"
               />
             </div>
-             <div className="space-y-2">
-                <Label htmlFor="pecaCodigo">Código da Peça</Label>
-                 <Input
-                    id="pecaCodigo"
-                    value={filters.pecaCodigo}
-                    onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)}
-                    placeholder="Ex: PD123"
-                />
+            <div className="space-y-2">
+              <Label htmlFor="pecaCodigo">Código da Peça</Label>
+              <Input
+                id="pecaCodigo"
+                value={filters.pecaCodigo}
+                onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)}
+                placeholder="Ex: PD123"
+              />
             </div>
-             <div className="flex items-end justify-start gap-2">
+            <div className="flex items-end justify-end gap-2">
               <Button onClick={handleSearch} disabled={isLoadingData}>
-                {isLoadingData ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Search className="mr-2 h-4 w-4" />
-                )}
+                {isLoadingData ? (<Loader2 className="mr-2 h-4 w-4 animate-spin" />) : (<Search className="mr-2 h-4 w-4" />)}
                 Filtrar
               </Button>
-              <Button
-                onClick={handleClearFilters}
-                variant="ghost"
-                disabled={isLoadingData}
-              >
+              <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData}>
                 <X className="mr-2 h-4 w-4" />
                 Limpar
               </Button>
@@ -472,8 +410,8 @@ export default function ConsultasPage() {
         <CardHeader>
           <CardTitle>Resultados da Busca</CardTitle>
           <CardDescription>
-            {movimentacoes
-              ? `${movimentacoes.length} resultado(s) encontrado(s).`
+            {hasSearched
+              ? `${movimentacoes?.length ?? 0} resultado(s) encontrado(s).`
               : 'Aguardando busca...'}
           </CardDescription>
         </CardHeader>
@@ -493,40 +431,22 @@ export default function ConsultasPage() {
               {isLoadingData ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-5 w-3/4" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-5 w-1/2" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-5 w-full" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-5 w-3/4" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-5 w-1/2" />
-                    </TableCell>
-                      <TableCell>
-                      <Skeleton className="h-8 w-8 ml-auto" />
-                    </TableCell>
+                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
                 ))
-              ) : movimentacoes && movimentacoes.length > 0 ? (
+              ) : hasSearched && movimentacoes && movimentacoes.length > 0 ? (
                 movimentacoes.map((mov) => (
                   <TableRow key={mov.id}>
                     <TableCell>
                       {mov.dataMovimentacao.toDate().toLocaleString('pt-BR')}
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          mov.tipoMovimentacao === 'Garantia'
-                            ? 'secondary'
-                            : 'outline'
-                        }
-                      >
+                      <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>
                         {mov.tipoMovimentacao}
                       </Badge>
                     </TableCell>
@@ -539,11 +459,7 @@ export default function ConsultasPage() {
                     <TableCell>{mov.clienteNome}</TableCell>
                     <TableCell>
                       {mov.tipoMovimentacao === 'Garantia' ? (
-                        <Badge
-                          variant={getStatusVariant(
-                            (mov as MovimentacaoGarantia).acaoRetorno
-                          )}
-                        >
+                        <Badge variant={getStatusVariant((mov as MovimentacaoGarantia).acaoRetorno)}>
                           {(mov as MovimentacaoGarantia).acaoRetorno}
                         </Badge>
                       ) : (
@@ -567,30 +483,21 @@ export default function ConsultasPage() {
                           </DropdownMenuItem>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <DropdownMenuItem
-                                onSelect={(e) => e.preventDefault()}
-                                className="text-red-600"
-                              >
+                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
                                 <Trash className="mr-2 h-4 w-4" />
                                 Excluir
                               </DropdownMenuItem>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Confirma a exclusão?
-                                </AlertDialogTitle>
+                                <AlertDialogTitle>Confirma a exclusão?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. O registro será
-                                  permanentemente excluído.
+                                  Esta ação não pode ser desfeita. O registro será permanentemente excluído.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(mov.id!)}
-                                  className="bg-red-600 hover:bg-red-700"
-                                >
+                                <AlertDialogAction onClick={() => handleDelete(mov.id!)} className="bg-red-600 hover:bg-red-700">
                                   Sim, excluir
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -604,7 +511,7 @@ export default function ConsultasPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={6} className="h-24 text-center">
-                    Nenhum resultado encontrado para os filtros aplicados.
+                    {hasSearched ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Use os filtros acima e clique em "Filtrar" para buscar.'}
                   </TableCell>
                 </TableRow>
               )}
