@@ -293,22 +293,21 @@ export default function ConsultasPage() {
                     <Label htmlFor="numeroNF">Nº da NF</Label>
                     <Input id="numeroNF" value={filters.numeroNF} onChange={(e) => handleFilterChange('numeroNF', e.target.value)} placeholder="Ex: 9876"/>
                 </div>
-
-                {/* Linha 4 */}
-                 <div className="md:col-span-3 space-y-2">
+                 <div className="md:col-span-2 space-y-2">
                     <Label htmlFor="codigoPeca">Código da Peça</Label>
                     <Input id="codigoPeca" value={filters.codigoPeca} onChange={(e) => handleFilterChange('codigoPeca', e.target.value)} placeholder="Ex: FRAS-LE123"/>
                 </div>
-                <div className="flex items-end justify-end gap-2">
-                    <Button onClick={handleSearch} disabled={isLoadingData} className="w-full md:w-auto">
-                        {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                        Filtrar
-                    </Button>
-                    <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData} className="w-full md:w-auto">
-                        <X className="mr-2 h-4 w-4" />
-                        Limpar
-                    </Button>
-                </div>
+
+            </div>
+             <div className="flex items-end justify-end gap-2 pt-4">
+                <Button onClick={handleSearch} disabled={isLoadingData} className="w-full md:w-auto">
+                    {isLoadingData ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                    Filtrar
+                </Button>
+                <Button onClick={handleClearFilters} variant="ghost" disabled={isLoadingData} className="w-full md:w-auto">
+                    <X className="mr-2 h-4 w-4" />
+                    Limpar
+                </Button>
             </div>
         </CardContent>
       </Card>
