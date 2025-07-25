@@ -36,6 +36,7 @@ interface SearchComboboxProps {
   onChange: (value: string | null) => void;
   className?: string;
   queryConstraints?: QueryConstraint[];
+  disabled?: boolean;
 }
 
 const formatLabel = (docData: any, labelField: string | string[]): string => {
@@ -59,6 +60,7 @@ export function SearchCombobox({
   onChange,
   className,
   queryConstraints = [],
+  disabled = false,
 }: SearchComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState<ComboboxOption[]>([]);
@@ -113,6 +115,7 @@ export function SearchCombobox({
           role="combobox"
           aria-expanded={open}
           className={cn('w-full justify-between', className)}
+          disabled={disabled}
         >
           <span className="truncate">
             {selectedOption?.label || placeholder}

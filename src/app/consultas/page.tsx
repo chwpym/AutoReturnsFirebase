@@ -202,17 +202,18 @@ export default function ConsultasPage() {
     let sortableItems = [...(movimentacoes || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
-
+        // Special handling for 'acaoRetorno' which only exists on MovimentacaoGarantia
         if (sortConfig.key === 'acaoRetorno') {
             const valA = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
             const valB = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
-             if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-             if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-             return 0;
+            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+            return 0;
         }
 
+        const aValue = a[sortConfig.key];
+        const bValue = b[sortConfig.key];
+        
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
             const aDate = aValue.toDate();
             const bDate = bValue.toDate();
@@ -221,11 +222,11 @@ export default function ConsultasPage() {
             return 0;
         }
         
-        if (typeof aValue === 'string' && typeof bValue === 'string') {
-            if (aValue.toLowerCase() < bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (aValue.toLowerCase() > bValue.toLowerCase()) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
-        }
+        const valA = String(aValue || '').toLowerCase();
+        const valB = String(bValue || '').toLowerCase();
+
+        if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
         
         return 0;
       });
@@ -451,7 +452,7 @@ export default function ConsultasPage() {
                 id="pecaCodigo"
                 value={filters.pecaCodigo}
                 onChange={(e) => handleFilterChange('pecaCodigo', e.target.value)}
-                placeholder="Ex: PD123"
+                placeholder="Ex: 12345"
               />
             </div>
             <div className="flex items-end justify-end gap-2">
