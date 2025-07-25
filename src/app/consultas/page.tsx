@@ -236,8 +236,8 @@ export default function ConsultasPage() {
         let bValue: any;
   
         if (sortConfig.key === 'acaoRetorno') {
-          aValue = a.tipoMovimentacao === 'Garantia' ? a.acaoRetorno : '';
-          bValue = b.tipoMovimentacao === 'Garantia' ? b.acaoRetorno : '';
+          aValue = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
+          bValue = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
         } else {
           aValue = (a as any)[sortConfig.key];
           bValue = (b as any)[sortConfig.key];
@@ -337,13 +337,16 @@ export default function ConsultasPage() {
       });
     }
   };
-
-  const toBase64 = (file: File): Promise<string> => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = error => reject(error);
-  });
+  
+  const bufferToBase64 = (buffer: ArrayBuffer) => {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
 
   const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
@@ -355,42 +358,66 @@ export default function ConsultasPage() {
     try {
       const response = await fetch('/images/logo.png');
       if (!response.ok) throw new Error('Logo not found');
-      const blob = await response.blob();
-      logoBase64 = await toBase64(new File([blob], "logo.png", {type: "image/png"}));
+      const imageBuffer = await response.arrayBuffer();
+      logoBase64 = `data:image/png;base64,${bufferToBase64(imageBuffer)}`;
+
     } catch (error) {
       console.error("Error loading logo, proceeding without it.", error);
       toast({ title: "Logo não encontrado", description: "O relatório será gerado sem o logo da empresa.", variant: "destructive" });
     }
   
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 14; 
-  
-    if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin, 10, 40, 15);
-    }
-  
-    doc.setFontSize(16);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Original Auto Peças', margin + 45, 15, { align: 'left' });
     
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", margin + 45, 20, { align: 'left' });
-    doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", margin + 45, 24, { align: 'left' });
+    const pageCount = doc.internal.pages.length;
+    const margin = 14; 
+    
+    const drawHeader = (data: any) => {
+      // HEADER
+      if (logoBase64) {
+        doc.addImage(logoBase64, 'PNG', data.settings.margin.left, 10, 40, 15);
+      }
+      
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Original Auto Peças', data.settings.margin.left + 45, 15, { align: 'left' });
+      
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", data.settings.margin.left + 45, 20);
+      doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", data.settings.margin.left + 45, 24);
+    
+      doc.setDrawColor(180, 180, 180);
+      doc.line(data.settings.margin.left, 40, doc.internal.pageSize.getWidth() - data.settings.margin.right, 40);
+    };
+
+    const drawFooter = (data: any) => {
+        const pageHeight = doc.internal.pageSize.getHeight();
+        doc.setDrawColor(180, 180, 180);
+        doc.line(data.settings.margin.left, pageHeight - 15, doc.internal.pageSize.getWidth() - data.settings.margin.right, pageHeight - 15);
+  
+        doc.setFontSize(8);
+        doc.text(
+          `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+          data.settings.margin.left,
+          pageHeight - 10
+        );
+        doc.text(
+          `Página ${data.pageNumber} de ${pageCount}`,
+          doc.internal.pageSize.getWidth() - data.settings.margin.right,
+          pageHeight - 10,
+          { align: 'right' }
+        );
+    }
   
     const filtersSummary = appliedFiltersList();
     if (filtersSummary) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Filtros Aplicados: `, margin, 34);
-      doc.setFont('helvetica', 'normal');
-      doc.text(filtersSummary, margin + doc.getTextWidth('Filtros Aplicados: '), 34);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        const filtersText = `Filtros Aplicados: `;
+        doc.text(filtersText, margin, 34);
+        doc.setFont('helvetica', 'normal');
+        doc.text(filtersSummary, margin + doc.getTextWidth(filtersText), 34, { maxWidth: doc.internal.pageSize.getWidth() - margin * 3 - doc.getTextWidth(filtersText) });
     }
-  
-    doc.setDrawColor(180, 180, 180);
-    doc.line(margin, 40, pageWidth - margin, 40);
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
     const head = [selectedColumns.map(c => c.label)];
@@ -422,21 +449,8 @@ export default function ConsultasPage() {
       body: body,
       startY: 45,
       didDrawPage: (data) => {
-        doc.setDrawColor(180, 180, 180);
-        doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
-  
-        doc.setFontSize(8);
-        doc.text(
-          `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-          margin,
-          pageHeight - 10
-        );
-        doc.text(
-          `Página ${data.pageNumber} de ${doc.internal.pages.length}`,
-          pageWidth - margin,
-          pageHeight - 10,
-          { align: 'right' }
-        );
+        drawHeader(data);
+        drawFooter(data);
       },
       margin: { top: 45, right: margin, bottom: 20, left: margin }
     });
@@ -903,3 +917,5 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
+    
