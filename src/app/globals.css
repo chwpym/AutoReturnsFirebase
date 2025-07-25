@@ -124,6 +124,11 @@ body {
   thead {
     display: table-header-group;
   }
+  .report-header {
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid hsl(var(--border));
+      padding-bottom: 1rem;
+  }
 }
 
 @page {

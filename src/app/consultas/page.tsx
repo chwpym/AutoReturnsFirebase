@@ -213,8 +213,8 @@ export default function ConsultasPage() {
             return 0;
         }
 
-        const aValue = a[sortConfig.key];
-        const bValue = b[sortConfig.key];
+        const aValue = a[sortConfig.key as keyof Movimentacao];
+        const bValue = b[sortConfig.key as keyof Movimentacao];
         
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
             const aDate = aValue.toDate();
@@ -349,12 +349,25 @@ export default function ConsultasPage() {
     document.body.removeChild(link);
   };
 
+  const appliedFiltersList = () => {
+    const list = [];
+    if (filters.tipoMovimentacao !== 'Todas') list.push(`Tipo: ${filters.tipoMovimentacao}`);
+    if (filters.statusGarantia !== 'Todos' && filters.tipoMovimentacao !== 'Devolução') list.push(`Status: ${filters.statusGarantia}`);
+    if (filters.dataInicio) list.push(`De: ${format(filters.dataInicio, 'dd/MM/yy')}`);
+    if (filters.dataFim) list.push(`Até: ${format(filters.dataFim, 'dd/MM/yy')}`);
+    if (filters.pecaCodigo) list.push(`Cód. Peça: ${filters.pecaCodigo}`);
+    if (filters.requisicaoVenda) list.push(`Requisição: ${filters.requisicaoVenda}`);
+    if (filters.numeroNF) list.push(`NF: ${filters.numeroNF}`);
+    // We don't show IDs for Cliente/Mecanico/Fornecedor as they aren't user-friendly
+    return list.join('  •  ');
+  }
+
   const isLoadingData = isLoading || isFetching;
 
   return (
     <div className="space-y-6">
        <div id="print-header" className="print-only">
-        <div className="flex justify-between items-center border-b pb-4 mb-4">
+        <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <Car className="h-8 w-8 text-primary" />
             <span className="font-semibold tracking-tight text-lg">AutoReturns</span>
@@ -365,6 +378,7 @@ export default function ConsultasPage() {
             <div>www.autoreturns.com.br</div>
           </div>
         </div>
+        <hr className="my-4" />
       </div>
 
       <Card className='no-print'>
@@ -525,7 +539,7 @@ export default function ConsultasPage() {
 
       <Card id="report-section">
         <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center no-print">
                 <div>
                     <CardTitle>Resultados da Busca</CardTitle>
                     <CardDescription>
@@ -534,7 +548,7 @@ export default function ConsultasPage() {
                         : 'Aguardando busca...'}
                     </CardDescription>
                 </div>
-                <div className="flex gap-2 no-print">
+                <div className="flex gap-2">
                     <Button variant="outline" onClick={handlePrint} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
                         <Printer className="mr-2 h-4 w-4" />
                         Imprimir Relatório
@@ -545,21 +559,11 @@ export default function ConsultasPage() {
                     </Button>
                 </div>
             </div>
-            <div className="print-only mt-4 border rounded-lg p-4 bg-gray-50">
-              <h2 className="text-lg font-semibold mb-2">Relatório de Movimentações</h2>
-              <h3 className="text-sm font-medium mb-2">Filtros Aplicados:</h3>
-              <ul className="list-disc list-inside text-sm text-muted-foreground">
-                <li>Tipo de Movimentação: {filters.tipoMovimentacao}</li>
-                {filters.tipoMovimentacao !== 'Devolução' && <li>Status da Garantia: {filters.statusGarantia}</li>}
-                {filters.dataInicio && <li>Data de Início: {format(filters.dataInicio, 'dd/MM/yyyy')}</li>}
-                {filters.dataFim && <li>Data de Fim: {format(filters.dataFim, 'dd/MM/yyyy')}</li>}
-                {filters.clienteId && <li>Cliente ID: {filters.clienteId}</li>}
-                {filters.mecanicoId && <li>Mecânico ID: {filters.mecanicoId}</li>}
-                {filters.fornecedorId && <li>Fornecedor ID: {filters.fornecedorId}</li>}
-                {filters.pecaCodigo && <li>Código da Peça: {filters.pecaCodigo}</li>}
-                {filters.requisicaoVenda && <li>Nº da Requisição: {filters.requisicaoVenda}</li>}
-                {filters.numeroNF && <li>Nº da NF: {filters.numeroNF}</li>}
-              </ul>
+            <div className="print-only report-header">
+                <h2 className="text-xl font-semibold">Relatório de Movimentações</h2>
+                <p className="text-sm text-muted-foreground">
+                    {appliedFiltersList() || 'Nenhum filtro aplicado.'}
+                </p>
             </div>
         </CardHeader>
         <CardContent>
