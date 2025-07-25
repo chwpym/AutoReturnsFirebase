@@ -52,7 +52,7 @@ import { SearchCombobox } from '@/components/search-combobox';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download } from 'lucide-react';
+import { CalendarIcon, Search, Loader2, X, MoreHorizontal, Edit, Trash, ArrowUpDown, Printer, Download, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -84,6 +84,7 @@ import type { UserOptions } from 'jspdf-autotable';
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDFWithAutoTable;
 }
+
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
   switch (status) {
@@ -189,9 +190,9 @@ const reportColumns = [
     { id: 'clienteNome', label: 'Cliente' },
     { id: 'mecanicoNome', label: 'Mecânico' },
     { id: 'fornecedorNome', label: 'Fornecedor' },
-    { id: 'requisicaoVenda', label: 'Requisição Venda' },
+    { id: 'requisicaoVenda', label: 'Req. Venda' },
     { id: 'nfSaida', label: 'NF Saída' },
-    { id: 'acaoRetorno', label: 'Status Garantia' },
+    { id: 'acaoRetorno', label: 'Status' },
 ];
 
 export default function ConsultasPage() {
@@ -231,16 +232,20 @@ export default function ConsultasPage() {
     let sortableItems = [...(movimentacoes || [])];
     if (sortConfig !== null) {
       sortableItems.sort((a, b) => {
-        if (sortConfig.key === 'acaoRetorno') {
-            const valA = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
-            const valB = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
-            if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
-        }
+        
+        let aValue: any;
+        let bValue: any;
 
-        const aValue = a[sortConfig.key as keyof Movimentacao];
-        const bValue = b[sortConfig.key as keyof Movimentacao];
+        if (sortConfig.key === 'acaoRetorno') {
+          aValue = a.tipoMovimentacao === 'Garantia' ? a.acaoRetorno : '';
+          bValue = b.tipoMovimentacao === 'Garantia' ? b.acaoRetorno : '';
+        } else if (sortConfig.key in a && sortConfig.key in b) {
+          aValue = a[sortConfig.key as keyof typeof a];
+          bValue = b[sortConfig.key as keyof typeof b];
+        } else {
+            aValue = '';
+            bValue = '';
+        }
         
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
             const aDate = aValue.toDate();
@@ -337,23 +342,31 @@ export default function ConsultasPage() {
     }
   };
 
-  const handleGeneratePdf = () => {
+  const toBase64 = (file: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+
+  const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
+
+    let logoBase64 = '';
+    try {
+      const response = await fetch('/images/logo.png');
+      const blob = await response.blob();
+      logoBase64 = await toBase64(blob);
+    } catch (error) {
+      console.error("Error loading logo, proceeding without it.", error);
+      toast({ title: "Logo não encontrado", description: "O relatório será gerado sem o logo da empresa.", variant: "destructive" });
+    }
     
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-
-    doc.setFontSize(18);
-    doc.text('Relatório de Movimentações', 14, 22);
-    doc.setFontSize(11);
-    doc.setTextColor(100);
-    const filtersSummary = appliedFiltersList();
-    if (filtersSummary) {
-      doc.text(`Filtros Aplicados: ${filtersSummary}`, 14, 30);
-    }
-
+    
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
     const head = [selectedColumns.map(c => c.label)];
     const body = sortedMovimentacoes.map(mov => {
@@ -361,42 +374,82 @@ export default function ConsultasPage() {
           const key = col.id as keyof Movimentacao;
           let value: any = '-';
 
-          if (key in mov) {
-              const movValue = mov[key as keyof typeof mov];
-              if (movValue instanceof Timestamp) {
-                  value = format(movValue.toDate(), 'dd/MM/yy HH:mm');
-              } else if (movValue !== null && movValue !== undefined) {
-                  value = movValue;
-              }
+          if (mov.tipoMovimentacao === 'Garantia') {
+            const garantiaMov = mov as MovimentacaoGarantia;
+            if (col.id === 'fornecedorNome') value = garantiaMov.fornecedorNome;
+            else if (col.id === 'acaoRetorno') value = garantiaMov.acaoRetorno;
+            else if (key in garantiaMov) value = garantiaMov[key as keyof typeof garantiaMov];
+          } else {
+             if (col.id === 'fornecedorNome') value = 'N/A';
+             else if (col.id === 'acaoRetorno') value = 'N/A';
+             else if (key in mov) value = mov[key as keyof typeof mov];
           }
           
-          if (key === 'fornecedorNome') {
-              value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+          if (value instanceof Timestamp) {
+              value = format(value.toDate(), 'dd/MM/yy HH:mm');
+          } else if (value !== null && value !== undefined) {
+              value = String(value);
+          } else {
+              value = '-';
           }
-          
-          if (key === 'acaoRetorno') {
-              value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
-          }
-
           return value;
       });
     });
 
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const pageWidth = doc.internal.pageSize.getWidth();
+
     doc.autoTable({
       head: head,
       body: body,
-      startY: 35,
+      startY: 45,
       didDrawPage: (data) => {
-        const pageCount = doc.internal.pages.length;
-        if (pageCount > 1) {
-          doc.setFontSize(10);
-          doc.text(
-            `Página ${data.pageNumber} de ${doc.internal.pages.length -1}`,
-            data.settings.margin.left,
-            doc.internal.pageSize.height - 10
-          );
+        // HEADER
+        if (logoBase64) {
+          doc.addImage(logoBase64, 'PNG', data.settings.margin.left, 10, 40, 15);
         }
+        
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Original Auto Peças', data.settings.margin.left + 45, 15);
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", data.settings.margin.left + 45, 20);
+        doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", data.settings.margin.left + 45, 24);
+        
+        const filtersSummary = appliedFiltersList();
+        if (filtersSummary) {
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text(`Filtros Aplicados: `, 14, 34);
+          doc.setFont('helvetica', 'normal');
+          doc.text(filtersSummary, 14 + doc.getTextWidth('Filtros Aplicados: '), 34);
+        }
+
+        doc.setDrawColor(180, 180, 180);
+        doc.line(data.settings.margin.left, 40, pageWidth - data.settings.margin.right, 40);
+
+
+        // FOOTER
+        const pageCount = doc.internal.pages.length;
+        doc.setDrawColor(180, 180, 180);
+        doc.line(data.settings.margin.left, pageHeight - 15, pageWidth - data.settings.margin.right, pageHeight - 15);
+
+        doc.setFontSize(8);
+        doc.text(
+          `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+          data.settings.margin.left,
+          pageHeight - 10
+        );
+        doc.text(
+          `Página ${data.pageNumber} de ${pageCount}`,
+          pageWidth - data.settings.margin.right,
+          pageHeight - 10,
+          { align: 'right' }
+        );
       },
+      margin: { top: 45, bottom: 20 }
     });
 
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -458,10 +511,10 @@ export default function ConsultasPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Search className="h-6 w-6" /> Consultas e Relatórios
+            <FileText className="h-6 w-6" /> Consultas e Relatórios
           </CardTitle>
           <CardDescription>
-            Use os filtros para encontrar devoluções e garantias. Depois, imprima ou exporte os resultados.
+            Use os filtros para encontrar devoluções e garantias. Depois, gere um PDF ou exporte os resultados.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -631,139 +684,141 @@ export default function ConsultasPage() {
             </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('dataMovimentacao')}>
-                        Data
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('tipoMovimentacao')}>
-                        Tipo
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('pecaDescricao')}>
-                        Peça
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('clienteNome')}>
-                        Cliente
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('requisicaoVenda')}>
-                        Requisição
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead>
-                    <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
-                        Status
-                        <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                </TableHead>
-                <TableHead className="w-[80px] text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoadingData ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-full" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                  </TableRow>
-                ))
-              ) : hasSearched && sortedMovimentacoes && sortedMovimentacoes.length > 0 ? (
-                sortedMovimentacoes.map((mov) => (
-                  <TableRow key={mov.id}>
-                    <TableCell>
-                      {format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>
-                        {mov.tipoMovimentacao}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="font-medium">{mov.pecaDescricao}</div>
-                      <div className="text-xs text-muted-foreground">
-                        Cód: {mov.pecaCodigo}
-                      </div>
-                    </TableCell>
-                    <TableCell>{mov.clienteNome}</TableCell>
-                    <TableCell>{mov.requisicaoVenda || '-'}</TableCell>
-                    <TableCell>
-                      {mov.tipoMovimentacao === 'Garantia' ? (
-                        <Badge variant={getStatusVariant((mov as MovimentacaoGarantia).acaoRetorno)}>
-                          {(mov as MovimentacaoGarantia).acaoRetorno}
-                        </Badge>
-                      ) : (
-                        '-'
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Abrir menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                           <DropdownMenuItem onSelect={() => handleEdit(mov)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                          </DropdownMenuItem>
-                         
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
-                                <Trash className="mr-2 h-4 w-4" />
-                                Excluir
-                              </DropdownMenuItem>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Confirma a exclusão?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Esta ação não pode ser desfeita. O registro será permanentemente excluído.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => handleDelete(mov.id!)} className="bg-red-600 hover:bg-red-700">
-                                  Sim, excluir
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
+          <div className="relative w-full overflow-auto print:overflow-visible">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    {hasSearched ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Use os filtros acima e clique em "Filtrar" para buscar.'}
-                  </TableCell>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('dataMovimentacao')}>
+                          Data
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('tipoMovimentacao')}>
+                          Tipo
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('pecaDescricao')}>
+                          Peça
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('clienteNome')}>
+                          Cliente
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('requisicaoVenda')}>
+                          Requisição
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead>
+                      <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
+                          Status
+                          <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                  </TableHead>
+                  <TableHead className="w-[80px] text-right">Ações</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {isLoadingData ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-full" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-3/4" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-1/2" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                    </TableRow>
+                  ))
+                ) : hasSearched && sortedMovimentacoes && sortedMovimentacoes.length > 0 ? (
+                  sortedMovimentacoes.map((mov) => (
+                    <TableRow key={mov.id}>
+                      <TableCell>
+                        {format(mov.dataMovimentacao.toDate(), 'dd/MM/yyyy HH:mm')}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={mov.tipoMovimentacao === 'Garantia' ? 'secondary' : 'outline'}>
+                          {mov.tipoMovimentacao}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{mov.pecaDescricao}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Cód: {mov.pecaCodigo}
+                        </div>
+                      </TableCell>
+                      <TableCell>{mov.clienteNome}</TableCell>
+                      <TableCell>{mov.requisicaoVenda || '-'}</TableCell>
+                      <TableCell>
+                        {mov.tipoMovimentacao === 'Garantia' ? (
+                          <Badge variant={getStatusVariant((mov as MovimentacaoGarantia).acaoRetorno)}>
+                            {(mov as MovimentacaoGarantia).acaoRetorno}
+                          </Badge>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                             <DropdownMenuItem onSelect={() => handleEdit(mov)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Editar
+                            </DropdownMenuItem>
+                           
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
+                                  <Trash className="mr-2 h-4 w-4" />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Confirma a exclusão?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação não pode ser desfeita. O registro será permanentemente excluído.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDelete(mov.id!)} className="bg-red-600 hover:bg-red-700">
+                                    Sim, excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                      {hasSearched ? 'Nenhum resultado encontrado para os filtros aplicados.' : 'Use os filtros acima e clique em "Filtrar" para buscar.'}
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       
@@ -810,7 +865,7 @@ export default function ConsultasPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
             <div>
               <Label className="font-semibold">Colunas do Relatório</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2 max-h-60 overflow-y-auto pr-2">
+              <div className="grid grid-cols-2 gap-2 mt-2 max-h-60 overflow-y-auto pr-2 border rounded-md p-2">
                 {reportColumns.map(col => (
                   <div key={col.id} className="flex items-center space-x-2">
                     <Checkbox
