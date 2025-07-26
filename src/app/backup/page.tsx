@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, Loader2, DatabaseBackup, AlertTriangle, FileCsv } from 'lucide-react';
+import { Download, Upload, Loader2, DatabaseBackup, AlertTriangle, FileText } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -348,7 +348,7 @@ export default function BackupPage() {
                             {isExportingCsv === collectionName ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : (
-                                <FileCsv className="mr-2 h-4 w-4" />
+                                <FileText className="mr-2 h-4 w-4" />
                             )}
                             Exportar {collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}
                         </Button>
