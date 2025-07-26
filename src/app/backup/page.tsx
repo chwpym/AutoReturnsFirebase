@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { collection, getDocs, writeBatch, doc, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Card,
@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
-  CardFooter,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,7 +33,13 @@ const COLLECTIONS_TO_BACKUP = ['clientes', 'fornecedores', 'pecas', 'movimentaco
 // Helper to download JSON
 const downloadJSON = (data: any, filename: string) => {
   const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-    JSON.stringify(data, null, 2)
+    JSON.stringify(data, (key, value) => {
+        // Convert Timestamps to a serializable format
+        if (value && value.toDate instanceof Function) {
+            return { _seconds: value.seconds, _nanoseconds: value.nanoseconds, __datatype__: 'timestamp' };
+        }
+        return value;
+    }, 2)
   )}`;
   const link = document.createElement('a');
   link.setAttribute('href', jsonString);
@@ -93,7 +98,15 @@ export default function BackupPage() {
     const reader = new FileReader();
     reader.onload = async (event) => {
         try {
-            const backupData = JSON.parse(event.target?.result as string);
+            const backupText = event.target?.result as string;
+            const backupData = JSON.parse(backupText, (key, value) => {
+                // Re-hydrate Timestamps from the serializable format
+                if (value && value.__datatype__ === 'timestamp' && value._seconds !== undefined) {
+                    return new Timestamp(value._seconds, value._nanoseconds);
+                }
+                return value;
+            });
+
             const batch = writeBatch(db);
             let operationsCount = 0;
 
@@ -105,14 +118,6 @@ export default function BackupPage() {
                             const { id, ...data } = record;
                             if (id) {
                                 const docRef = doc(db, collectionName, id);
-                                
-                                // Re-hydrate Timestamps
-                                Object.keys(data).forEach(key => {
-                                    if (data[key] && typeof data[key] === 'object' && data[key].seconds !== undefined) {
-                                        data[key] = new Timestamp(data[key].seconds, data[key].nanoseconds);
-                                    }
-                                });
-
                                 batch.set(docRef, data);
                                 operationsCount++;
                             }
@@ -256,5 +261,3 @@ export default function BackupPage() {
     </div>
   );
 }
-
-    
