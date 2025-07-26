@@ -80,7 +80,7 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
-import Image from 'next/image';
+import html2canvas from 'html2canvas';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -199,7 +199,6 @@ const reportColumns = [
 export default function ConsultasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const logoImageRef = React.useRef<HTMLImageElement>(null);
 
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
@@ -340,38 +339,42 @@ export default function ConsultasPage() {
     }
   };
   
-
   const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
 
-    const logoElement = logoImageRef.current;
-    if (!logoElement || !logoElement.src) {
-        toast({ title: 'Erro: Logo não foi carregado a tempo', variant: 'destructive' });
+    const logoElement = document.getElementById('logo-para-pdf');
+    if (!logoElement) {
+        toast({ title: 'Erro: Logo não encontrado no DOM', variant: 'destructive' });
         return;
     }
-    const logoImgData = logoElement.src;
+
+    let logoImgData = '';
+    try {
+        const canvas = await html2canvas(logoElement as HTMLElement);
+        logoImgData = canvas.toDataURL('image/png');
+    } catch (e) {
+        console.error("Erro ao processar logo com html2canvas:", e);
+        toast({
+            title: "Aviso",
+            description: "Não foi possível adicionar o logo ao PDF, mas o relatório foi gerado.",
+            variant: "default"
+        });
+    }
 
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-    
-    const margin = 14; 
-    
+    const margin = 14;
+
     const drawHeader = (data: any) => {
-      // HEADER
-      try {
         if (logoImgData) {
-          doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
+            try {
+                doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
+            } catch (e) {
+                console.error("Erro ao adicionar imagem ao PDF:", e);
+            }
         }
-      } catch (e) {
-          console.error("Erro ao adicionar imagem do logo:", e);
-          toast({
-              title: "Aviso",
-              description: "Não foi possível adicionar o logo ao PDF, mas o relatório foi gerado.",
-              variant: "default"
-          })
-      }
       
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
@@ -426,7 +429,7 @@ export default function ConsultasPage() {
             value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
         } else if (col.id === 'acaoRetorno') {
             value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
-        } else if (col.id in mov) {
+        } else if ((col.id as keyof Movimentacao) in mov) {
             value = (mov as any)[col.id];
         }
   
@@ -507,16 +510,12 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-      <div style={{ display: 'none' }}>
-        <Image
-          ref={logoImageRef}
+      <img
+          id="logo-para-pdf"
           src="/images/logo.png"
           alt="Logo da Original Auto Peças"
-          width={200}
-          height={75}
-          priority
-        />
-      </div>
+          style={{ display: 'none' }}
+      />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
