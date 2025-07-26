@@ -80,14 +80,13 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+import Image from 'next/image';
+
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDFWithAutoTable;
 }
-
-// Logo as a Base64 string to avoid fetch issues
-const logoBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMgAAADICAYAAACtWK6eAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAASJSURBVHja7d1BbiVFGAbgr4MkBZe4QIgrGFERRMFFR3ChS3QdLoAwxAK4iJgDiIuAy4IoQhTcxUEUJYgoQhVcZRc4cRBHBxFELqgoq+A4d0LdQDd1X/dPddM/tX+q+vrqqdOhP10AIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgIQEQCIACACgAgAIgKACAAiAIgIQEQAIgKACAAiAIgIQCQz/gDApGZ+l/8i8I0AAAAASUVORK5CYII=';
-
 
 const getStatusVariant = (status: MovimentacaoGarantia['acaoRetorno']) => {
   switch (status) {
@@ -342,21 +341,29 @@ export default function ConsultasPage() {
   };
   
 
-  const handleGeneratePdf = () => {
+  const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
+
+    const logoElement = document.getElementById('logo-para-pdf');
+    if (!logoElement) {
+        toast({ title: 'Erro: Logo não encontrado no DOM', variant: 'destructive' });
+        return;
+    }
+
+    const canvas = await html2canvas(logoElement, { backgroundColor: null });
+    const logoImgData = canvas.toDataURL('image/png');
   
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     
-    const pageCount = doc.internal.pages.length;
     const margin = 14; 
     
     const drawHeader = (data: any) => {
       // HEADER
-      if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', data.settings.margin.left, 10, 40, 15);
+      if (logoImgData) {
+        doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
       }
       
       doc.setFontSize(16);
@@ -374,6 +381,7 @@ export default function ConsultasPage() {
 
     const drawFooter = (data: any) => {
         const pageHeight = doc.internal.pageSize.getHeight();
+        const pageCount = doc.internal.getNumberOfPages();
         doc.setDrawColor(180, 180, 180);
         doc.line(data.settings.margin.left, pageHeight - 15, doc.internal.pageSize.getWidth() - data.settings.margin.right, pageHeight - 15);
   
@@ -407,14 +415,12 @@ export default function ConsultasPage() {
       return selectedColumns.map(col => {
         let value: any = '-';
   
-        if (mov.tipoMovimentacao === 'Garantia' && col.id === 'fornecedorNome') {
-          value = mov.fornecedorNome;
-        } else if (mov.tipoMovimentacao === 'Garantia' && col.id === 'acaoRetorno') {
-          value = mov.acaoRetorno;
-        } else if (mov.tipoMovimentacao === 'Devolução' && (col.id === 'fornecedorNome' || col.id === 'acaoRetorno')) {
-          value = 'N/A';
+        if (col.id === 'fornecedorNome') {
+            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+        } else if (col.id === 'acaoRetorno') {
+            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
         } else if (col.id in mov) {
-          value = (mov as any)[col.id];
+            value = (mov as any)[col.id];
         }
   
         if (value instanceof Timestamp) {
@@ -494,7 +500,15 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-       
+       <Image
+        id="logo-para-pdf"
+        src="/images/logo.png"
+        alt="Logo da Original Auto Peças"
+        width={200}
+        height={75}
+        style={{ display: 'none' }}
+        priority
+      />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -901,7 +915,3 @@ export default function ConsultasPage() {
     </div>
   );
 }
-
-    
-
-    
