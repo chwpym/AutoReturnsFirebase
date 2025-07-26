@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/app-layout';
 import { Toaster } from "@/components/ui/toaster";
 import { Inter as FontSans } from "next/font/google"
 import { cn } from "@/lib/utils"
+import { BackupProvider } from '@/hooks/use-backup';
 
 export const metadata: Metadata = {
   title: 'AutoReturns',
@@ -34,9 +35,11 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <AppLayout>
-            {children}
-          </AppLayout>
+          <BackupProvider>
+            <AppLayout>
+              {children}
+            </AppLayout>
+          </BackupProvider>
           <Toaster />
         </ThemeProvider>
       </body>

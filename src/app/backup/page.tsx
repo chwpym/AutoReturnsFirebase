@@ -2,7 +2,7 @@
 'use client';
 
 import * as React from 'react';
-import { collection, getDocs, writeBatch, doc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, Timestamp, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Card,
@@ -15,205 +15,73 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Download, Upload, Loader2, DatabaseBackup, AlertTriangle, FileText } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { Download, Upload, Loader2, DatabaseBackup, AlertTriangle, FileText, FileArchive } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Papa from 'papaparse';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import { format } from 'date-fns';
+import { useBackup } from '@/hooks/use-backup';
+
 
 const COLLECTIONS_TO_BACKUP = ['clientes', 'fornecedores', 'pecas', 'movimentacoes'];
-
-// Helper to download JSON
-const downloadJSON = (data: any, filename: string) => {
-  const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(
-    JSON.stringify(data, (key, value) => {
-      // Convert Timestamps to a serializable format
-      if (value && value.toDate instanceof Function) {
-        return { _seconds: value.seconds, _nanoseconds: value.nanoseconds, __datatype__: 'timestamp' };
-      }
-      return value;
-    }, 2)
-  )}`;
-  const link = document.createElement('a');
-  link.setAttribute('href', jsonString);
-  link.setAttribute('download', `${filename}.json`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-};
+const COLLECTIONS_TO_IMPORT = ['clientes', 'fornecedores', 'pecas'];
 
 // Helper to download CSV
 const downloadCSV = (csv: string, filename: string) => {
     const bom = "\uFEFF"; // Byte Order Mark for UTF-8
     const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${filename}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    saveAs(blob, `${filename}.csv`);
+};
+
+const flattenData = (docData: any) => {
+    const flattenedData: Record<string, any> = {};
+    for (const key in docData) {
+        const value = docData[key];
+        if (value instanceof Timestamp) {
+            flattenedData[key] = format(value.toDate(), 'yyyy-MM-dd HH:mm:ss');
+        } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+            for (const subKey in value) {
+                flattenedData[`${key}.${subKey}`] = value[subKey];
+            }
+        } else {
+            flattenedData[key] = value;
+        }
+    }
+    return flattenedData;
 };
 
 
 export default function BackupPage() {
   const { toast } = useToast();
+  const { updateLastBackup } = useBackup();
   const [isExporting, setIsExporting] = React.useState(false);
-  const [isImporting, setIsImporting] = React.useState(false);
-  const [importFile, setImportFile] = React.useState<File | null>(null);
   const [isExportingCsv, setIsExportingCsv] = React.useState<string | null>(null);
+  const [importStates, setImportStates] = React.useState<Record<string, { file: File | null; loading: boolean }>>(
+    COLLECTIONS_TO_IMPORT.reduce((acc, name) => ({ ...acc, [name]: { file: null, loading: false } }), {})
+  );
 
-  const handleExportJson = async () => {
-    setIsExporting(true);
-    try {
-      const backupData: Record<string, any[]> = {};
-
-      for (const collectionName of COLLECTIONS_TO_BACKUP) {
-        const querySnapshot = await getDocs(collection(db, collectionName));
-        backupData[collectionName] = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
-      }
-
-      downloadJSON(backupData, `backup_completo_${new Date().toISOString().split('T')[0]}`);
-
-      toast({
-        title: 'Exportação Concluída',
-        description: `Backup de todas as coleções gerado com sucesso.`,
-      });
-    } catch (error) {
-      console.error('Error exporting data:', error);
-      toast({
-        title: 'Erro na Exportação',
-        description: 'Não foi possível exportar os dados do sistema.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
+  const handleFileSelect = (collectionName: string, file: File | null) => {
+    setImportStates(prev => ({
+        ...prev,
+        [collectionName]: { ...prev[collectionName], file }
+    }));
   };
 
-  const handleImportJson = async () => {
-    if (!importFile) {
-      toast({ title: 'Nenhum arquivo selecionado', variant: 'destructive' });
-      return;
-    }
-
-    setIsImporting(true);
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const backupText = event.target?.result as string;
-        const backupData = JSON.parse(backupText, (key, value) => {
-          // Re-hydrate Timestamps from the serializable format
-          if (value && value.__datatype__ === 'timestamp' && value._seconds !== undefined) {
-            return new Timestamp(value._seconds, value._nanoseconds);
-          }
-          return value;
-        });
-
-        const batch = writeBatch(db);
-        let operationsCount = 0;
-
-        for (const collectionName in backupData) {
-          if (Object.prototype.hasOwnProperty.call(backupData, collectionName)) {
-            const records = backupData[collectionName];
-            if (Array.isArray(records)) {
-              records.forEach((record: any) => {
-                const { id, ...data } = record;
-                if (id) {
-                  const docRef = doc(db, collectionName, id);
-                  batch.set(docRef, data);
-                  operationsCount++;
-                }
-              });
-            }
-          }
-        }
-
-        if (operationsCount === 0) {
-          toast({
-            title: 'Nenhum dado para importar',
-            description: 'O arquivo de backup parece estar vazio ou em um formato inválido.',
-            variant: 'destructive',
-          });
-          setIsImporting(false);
-          return;
-        }
-
-        await batch.commit();
-
-        toast({
-          title: 'Importação Concluída',
-          description: `${operationsCount} registros foram restaurados com sucesso.`,
-        });
-
-      } catch (error) {
-        console.error('Error importing data:', error);
-        toast({
-          title: 'Erro na Importação',
-          description: 'O arquivo está corrompido ou em formato inválido. A restauração falhou.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsImporting(false);
-        setImportFile(null);
-        // Reset the input field
-        const fileInput = document.getElementById('import-file-input') as HTMLInputElement;
-        if (fileInput) fileInput.value = '';
-      }
-    };
-    reader.readAsText(importFile);
-  };
-  
   const handleExportCsv = async (collectionName: string) => {
     setIsExportingCsv(collectionName);
     try {
         const querySnapshot = await getDocs(collection(db, collectionName));
-        const data = querySnapshot.docs.map(doc => {
-            const docData = doc.data();
-            const flattenedData: Record<string, any> = { id: doc.id };
-
-            for (const key in docData) {
-                const value = docData[key];
-                if (value instanceof Timestamp) {
-                    flattenedData[key] = format(value.toDate(), 'yyyy-MM-dd HH:mm:ss');
-                } else if (typeof value === 'object' && value !== null) {
-                    // Flatten nested objects (like 'tipo' in 'clientes')
-                    for (const subKey in value) {
-                         flattenedData[`${key}.${subKey}`] = value[subKey];
-                    }
-                } else {
-                    flattenedData[key] = value;
-                }
-            }
-            return flattenedData;
-        });
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...flattenData(doc.data()) }));
 
         if (data.length === 0) {
             toast({ title: 'Nenhum dado para exportar', description: `A coleção "${collectionName}" está vazia.` });
             return;
         }
-
         const csv = Papa.unparse(data);
-        downloadCSV(csv, `export_${collectionName}_${new Date().toISOString().split('T')[0]}`);
-        
+        downloadCSV(csv, `backup_${collectionName}_${new Date().toISOString().split('T')[0]}`);
         toast({ title: 'Exportação Concluída', description: `Dados de "${collectionName}" exportados com sucesso.` });
-
+        updateLastBackup();
     } catch (error) {
         console.error(`Error exporting ${collectionName} to CSV:`, error);
         toast({ title: 'Erro na Exportação', description: `Não foi possível exportar a coleção "${collectionName}".`, variant: 'destructive' });
@@ -221,6 +89,93 @@ export default function BackupPage() {
         setIsExportingCsv(null);
     }
   };
+
+  const handleGeneralBackup = async () => {
+    setIsExporting(true);
+    const zip = new JSZip();
+    try {
+        for (const collectionName of COLLECTIONS_TO_BACKUP) {
+            const querySnapshot = await getDocs(collection(db, collectionName));
+            const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...flattenData(doc.data()) }));
+            if (data.length > 0) {
+                const csv = Papa.unparse(data);
+                zip.file(`${collectionName}.csv`, "\uFEFF" + csv);
+            }
+        }
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        saveAs(zipBlob, `backup_geral_${new Date().toISOString().split('T')[0]}.zip`);
+        toast({ title: 'Backup Geral Concluído', description: 'Todas as coleções foram exportadas e compactadas.' });
+        updateLastBackup();
+    } catch (error) {
+        console.error('Error creating general backup:', error);
+        toast({ title: 'Erro no Backup Geral', description: 'Não foi possível gerar o arquivo .zip.', variant: 'destructive' });
+    } finally {
+        setIsExporting(false);
+    }
+  };
+
+  const handleImport = async (collectionName: string) => {
+    const { file } = importStates[collectionName];
+    if (!file) {
+        toast({ title: 'Nenhum arquivo selecionado', variant: 'destructive' });
+        return;
+    }
+
+    setImportStates(prev => ({ ...prev, [collectionName]: { ...prev[collectionName], loading: true } }));
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            const data = results.data as any[];
+            let successCount = 0;
+            let errorCount = 0;
+
+            const promises = data.map(async (row) => {
+                try {
+                    // Simple validation based on collection
+                    if (collectionName === 'clientes' && !row.nomeRazaoSocial) throw new Error('Nome/Razão Social ausente');
+                    if (collectionName === 'fornecedores' && !row.razaoSocial) throw new Error('Razão Social ausente');
+                    if (collectionName === 'pecas' && !row.codigoPeca) throw new Error('Código da Peça ausente');
+                    
+                    // Re-hydrate nested objects if needed, e.g., 'tipo' for clientes
+                    const docData = { ...row };
+                    if (collectionName === 'clientes' && (row['tipo.cliente'] || row['tipo.mecanico'])) {
+                        docData.tipo = {
+                            cliente: row['tipo.cliente'] === 'true',
+                            mecanico: row['tipo.mecanico'] === 'true'
+                        };
+                        delete docData['tipo.cliente'];
+                        delete docData['tipo.mecanico'];
+                    }
+
+                    await addDoc(collection(db, collectionName), docData);
+                    successCount++;
+                } catch (e) {
+                    errorCount++;
+                    console.error(`Error importing row for ${collectionName}:`, e, row);
+                }
+            });
+
+            await Promise.all(promises);
+
+            toast({
+                title: 'Importação Concluída',
+                description: `${successCount} registros adicionados a "${collectionName}". ${errorCount} linhas ignoradas por erros.`,
+            });
+
+            setImportStates(prev => ({ ...prev, [collectionName]: { file: null, loading: false } }));
+             // Reset the specific input field
+            const fileInput = document.getElementById(`import-file-${collectionName}`) as HTMLInputElement;
+            if (fileInput) fileInput.value = '';
+        },
+        error: (error) => {
+            console.error('Error parsing CSV:', error);
+            toast({ title: 'Erro de Leitura', description: 'Não foi possível ler o arquivo CSV.', variant: 'destructive' });
+            setImportStates(prev => ({ ...prev, [collectionName]: { ...prev[collectionName], loading: false } }));
+        }
+    });
+  }
 
 
   return (
@@ -237,124 +192,86 @@ export default function BackupPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="json_backup">
+      <Tabs defaultValue="export">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="json_backup">Backup & Restore (JSON)</TabsTrigger>
-          <TabsTrigger value="csv_export">Exportação (CSV)</TabsTrigger>
+            <TabsTrigger value="export">Exportar (Backup)</TabsTrigger>
+            <TabsTrigger value="import">Importar (Restauração)</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="json_backup" className="space-y-6 pt-4">
+        <TabsContent value="export" className="space-y-6 pt-4">
           <Card>
             <CardHeader>
-              <CardTitle>Backup Completo (Exportação)</CardTitle>
-              <CardDescription>
-                Crie um único arquivo JSON contendo todos os dados do sistema (clientes, fornecedores, peças e movimentações). Guarde este arquivo em um local seguro.
-              </CardDescription>
+                <CardTitle>Backup Geral (.zip)</CardTitle>
+                <CardDescription>
+                    Crie um único arquivo .zip contendo todas as coleções em formato CSV. Esta é a forma mais recomendada de fazer backup.
+                </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button
-                onClick={handleExportJson}
-                disabled={isExporting}
-                size="lg"
-              >
-                {isExporting ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4" />
-                )}
-                Exportar Backup Completo (.json)
-              </Button>
+                <Button onClick={handleGeneralBackup} disabled={isExporting} size="lg">
+                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileArchive className="mr-2 h-4 w-4" />}
+                    Fazer Backup Geral (.zip)
+                </Button>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
-              <CardTitle>Restauração Completa (Importação)</CardTitle>
-              <CardDescription>
-                Use um arquivo de backup JSON para restaurar os dados do sistema.
-              </CardDescription>
+                <CardTitle>Backup Individual (.csv)</CardTitle>
+                <CardDescription>
+                    Faça o download dos dados de uma coleção específica em formato CSV. Ideal para visualização e edição em planilhas.
+                </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10">
-                <div className="flex items-center gap-3">
-                  <AlertTriangle className="h-6 w-6 text-destructive" />
-                  <h3 className="font-bold text-destructive">Atenção: Ação Irreversível</h3>
-                </div>
-                <p className="text-sm text-destructive/90 mt-2">
-                  A importação de um backup irá **sobrescrever** todos os dados existentes que possuam o mesmo ID dos registros no arquivo. Novos registros serão adicionados. Esta ação não pode ser desfeita.
-                  Certifique-se de que o arquivo selecionado é o backup correto que deseja restaurar.
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                <div className="grid w-full max-w-sm items-center gap-1.5">
-                  <Label htmlFor="import-file-input">Selecione o arquivo de backup (.json)</Label>
-                  <Input
-                    id="import-file-input"
-                    type="file"
-                    accept=".json"
-                    onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)}
-                  />
-                </div>
-
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button disabled={!importFile || isImporting}>
-                      {isImporting ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Upload className="mr-2 h-4 w-4" />
-                      )}
-                      Importar e Restaurar Dados
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {COLLECTIONS_TO_BACKUP.map((collectionName) => (
+                    <Button
+                        key={collectionName}
+                        onClick={() => handleExportCsv(collectionName)}
+                        disabled={!!isExportingCsv}
+                        variant="outline"
+                    >
+                        {isExportingCsv === collectionName ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                        Exportar {collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}
                     </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Esta ação irá restaurar os dados do arquivo de backup. Dados existentes com o mesmo ID serão sobrescritos.
-                        <br /><br />
-                        Arquivo selecionado: <span className="font-semibold">{importFile?.name}</span>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleImportJson} className="bg-destructive hover:bg-destructive/90">
-                        Sim, restaurar o backup
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+                ))}
             </CardContent>
           </Card>
         </TabsContent>
 
-        <TabsContent value="csv_export" className="pt-4">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Exportar Dados para CSV</CardTitle>
-                    <CardDescription>
-                        Faça o download dos dados de uma coleção específica em formato CSV. Este formato é ideal para visualização e edição em planilhas como o Excel.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {COLLECTIONS_TO_BACKUP.map((collectionName) => (
-                         <Button
-                            key={collectionName}
-                            onClick={() => handleExportCsv(collectionName)}
-                            disabled={!!isExportingCsv}
-                            variant="outline"
-                         >
-                            {isExportingCsv === collectionName ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <FileText className="mr-2 h-4 w-4" />
-                            )}
-                            Exportar {collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}
+        <TabsContent value="import" className="space-y-6 pt-4">
+            <div className="p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+                <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-destructive" />
+                    <h3 className="font-bold text-destructive">Atenção: Ação Irreversível</h3>
+                </div>
+                <p className="text-sm text-destructive/90 mt-2">
+                  A importação de um arquivo CSV irá **adicionar novos registros** ao banco de dados. Esta ação não sobrescreve dados existentes e não pode ser desfeita facilmente. Certifique-se de que o arquivo e o formato estão corretos.
+                </p>
+            </div>
+            {COLLECTIONS_TO_IMPORT.map((collectionName) => (
+                <Card key={collectionName}>
+                    <CardHeader>
+                        <CardTitle>Importar {collectionName.charAt(0).toUpperCase() + collectionName.slice(1)}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div className="grid w-full max-w-sm items-center gap-1.5">
+                            <Label htmlFor={`import-file-${collectionName}`}>Selecione o arquivo .csv</Label>
+                            <Input
+                                id={`import-file-${collectionName}`}
+                                type="file"
+                                accept=".csv"
+                                onChange={(e) => handleFileSelect(collectionName, e.target.files ? e.target.files[0] : null)}
+                                disabled={importStates[collectionName].loading}
+                            />
+                        </div>
+                        <Button
+                            onClick={() => handleImport(collectionName)}
+                            disabled={!importStates[collectionName].file || importStates[collectionName].loading}
+                        >
+                            {importStates[collectionName].loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                            Importar Dados
                         </Button>
-                    ))}
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            ))}
         </TabsContent>
       </Tabs>
     </div>
