@@ -80,7 +80,6 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
 import Image from 'next/image';
 
 
@@ -200,6 +199,7 @@ const reportColumns = [
 export default function ConsultasPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const logoImageRef = React.useRef<HTMLImageElement>(null);
 
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
@@ -347,23 +347,30 @@ export default function ConsultasPage() {
       return;
     }
 
-    const logoElement = document.getElementById('logo-para-pdf');
-    if (!logoElement) {
-        toast({ title: 'Erro: Logo não encontrado no DOM', variant: 'destructive' });
+    const logoElement = logoImageRef.current;
+    if (!logoElement || !logoElement.src) {
+        toast({ title: 'Erro: Logo não foi carregado a tempo', variant: 'destructive' });
         return;
     }
+    const logoImgData = logoElement.src;
 
-    const canvas = await html2canvas(logoElement, { backgroundColor: null });
-    const logoImgData = canvas.toDataURL('image/png');
-  
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     
     const margin = 14; 
     
     const drawHeader = (data: any) => {
       // HEADER
-      if (logoImgData) {
-        doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
+      try {
+        if (logoImgData) {
+          doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
+        }
+      } catch (e) {
+          console.error("Erro ao adicionar imagem do logo:", e);
+          toast({
+              title: "Aviso",
+              description: "Não foi possível adicionar o logo ao PDF, mas o relatório foi gerado.",
+              variant: "default"
+          })
       }
       
       doc.setFontSize(16);
@@ -500,15 +507,16 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-       <Image
-        id="logo-para-pdf"
-        src="/images/logo.png"
-        alt="Logo da Original Auto Peças"
-        width={200}
-        height={75}
-        style={{ display: 'none' }}
-        priority
-      />
+      <div style={{ display: 'none' }}>
+        <Image
+          ref={logoImageRef}
+          src="/images/logo.png"
+          alt="Logo da Original Auto Peças"
+          width={200}
+          height={75}
+          priority
+        />
+      </div>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
