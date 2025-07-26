@@ -29,7 +29,7 @@ const COLLECTIONS_TO_IMPORT_CSV = ['clientes', 'fornecedores', 'pecas'];
 
 // Helper to download files
 const downloadFile = (content: string, filename: string, mimeType: string) => {
-    const bom = mimeType === 'text/csv;charset=utf-8;' ? "\uFEFF" : "";
+    const bom = mimeType.startsWith('text/csv') ? "\uFEFF" : "";
     const blob = new Blob([bom + content], { type: mimeType });
     saveAs(blob, filename);
 };
@@ -91,7 +91,7 @@ export default function BackupPage() {
             return value;
         }, 2);
 
-        downloadFile(jsonString, `backup_completo_${new Date().toISOString().split('T')[0]}.json`, 'application/json;charset=utf-8;');
+        downloadFile(jsonString, `backup_completo_${new Date().toISOString().split('T')[0]}.json`, 'application/json;charset=utf-8');
         toast({ title: 'Backup JSON Concluído', description: 'Todos os dados foram exportados para um arquivo JSON.' });
         updateLastBackup();
     } catch (error) {
@@ -156,7 +156,7 @@ export default function BackupPage() {
             return;
         }
         const csv = Papa.unparse(data);
-        downloadFile(csv, `backup_${collectionName}_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8;');
+        downloadFile(csv, `backup_${collectionName}_${new Date().toISOString().split('T')[0]}.csv`, 'text/csv;charset=utf-8');
         toast({ title: 'Exportação Concluída', description: `Dados de "${collectionName}" exportados com sucesso.` });
         updateLastBackup();
     } catch (error) {
@@ -268,7 +268,7 @@ export default function BackupPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="export_csv">
+      <Tabs defaultValue="export_csv" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="json">Backup & Restore (JSON)</TabsTrigger>
             <TabsTrigger value="export_csv">Exportação (CSV / .zip)</TabsTrigger>
