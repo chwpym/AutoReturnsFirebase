@@ -127,7 +127,8 @@ body {
 
 .app-container.menu-recolhido .sidebar-logo-text,
 .app-container.menu-recolhido .nav-item-text,
-.app-container.menu-recolhido .nav-group-label {
+.app-container.menu-recolhido .nav-group-label,
+.app-container.menu-recolhido .nav-group-chevron {
   opacity: 0;
   width: 0;
   overflow: hidden;
@@ -136,6 +137,10 @@ body {
 
 .app-container.menu-recolhido .nav-item {
   justify-content: center;
+}
+
+.app-container.menu-recolhido .nav-group-trigger {
+    justify-content: center;
 }
 
 /* Sidebar components */
@@ -156,17 +161,42 @@ body {
 }
 
 .nav-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.nav-group-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: left;
+    padding: 0 0.75rem;
+    cursor: pointer;
 }
 
 .nav-group-label {
   font-size: 0.75rem;
   text-transform: uppercase;
   color: hsl(var(--muted-foreground));
-  padding: 0 0.75rem;
-  margin-bottom: 0.5rem;
   display: block;
   transition: opacity 0.3s ease, width 0.3s ease;
+}
+
+.nav-group-chevron {
+    color: hsl(var(--muted-foreground));
+    transition: transform 0.2s ease-in-out, opacity 0.3s ease;
+}
+
+.nav-group-trigger[data-state='open'] .nav-group-chevron {
+    transform: rotate(180deg);
+}
+
+.nav-group-content {
+    overflow: hidden;
+    padding-left: 0.75rem;
+    padding-top: 0.5rem;
 }
 
 .nav-item {

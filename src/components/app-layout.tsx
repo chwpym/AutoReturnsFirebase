@@ -15,20 +15,30 @@ import {
   Undo2,
   ShieldCheck,
   Search,
-  DatabaseBackup
+  DatabaseBackup,
+  ChevronDown
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '@/lib/utils';
 import { QueryProvider } from './query-provider';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 const menuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { isGroup: true, label: "Cadastros", items: [
+  { 
+    isGroup: true, 
+    label: "Cadastros", 
+    id: "cadastros",
+    items: [
       { href: "/cadastros/clientes", label: "Clientes/Mecânicos", icon: Users },
       { href: "/cadastros/fornecedores", label: "Fornecedores", icon: Building },
       { href: "/cadastros/pecas", label: "Peças", icon: Wrench },
   ]},
-  { isGroup: true, label: "Movimentações", items: [
+  { 
+    isGroup: true, 
+    label: "Movimentações", 
+    id: "movimentacoes",
+    items: [
       { href: "/movimentacoes/devolucao", label: "Registrar Devolução", icon: Undo2 },
       { href: "/movimentacoes/garantia", label: "Registrar Garantia", icon: ShieldCheck },
   ]},
@@ -56,26 +66,35 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <nav className="sidebar-nav">
-            {menuItems.map((item, index) => (
+              {menuItems.map((item, index) => (
                 <div key={index} className="nav-group">
-                {item.isGroup ? (
-                    <>
-                    <span className="nav-group-label">{item.label}</span>
-                    {item.items?.map(subItem => (
-                        <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
-                            <subItem.icon className="nav-item-icon" />
-                            <span className="nav-item-text">{subItem.label}</span>
-                        </Link>
-                    ))}
-                    </>
-                ) : (
+                  {item.isGroup ? (
+                    <Collapsible defaultOpen={true}>
+                      <CollapsibleTrigger asChild>
+                         <button className="nav-group-trigger">
+                          <span className="nav-group-label">{item.label}</span>
+                          <ChevronDown className="nav-group-chevron" />
+                        </button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <div className="nav-group-content">
+                            {item.items?.map(subItem => (
+                                <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
+                                    <subItem.icon className="nav-item-icon" />
+                                    <span className="nav-item-text">{subItem.label}</span>
+                                </Link>
+                            ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  ) : (
                     <Link href={item.href || '#'} key={`${item.href}-${item.label}`} className={cn("nav-item", pathname === item.href && "active")}>
                         <item.icon className="nav-item-icon" />
                         <span className="nav-item-text">{item.label}</span>
                     </Link>
-                )}
+                  )}
                 </div>
-            ))}
+              ))}
             </nav>
             
         </aside>
