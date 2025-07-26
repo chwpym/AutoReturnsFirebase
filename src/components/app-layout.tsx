@@ -15,7 +15,8 @@ import {
   Undo2,
   ShieldCheck,
   Search,
-  FileText
+  FileText,
+  DatabaseBackup
 } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '@/lib/utils';
@@ -32,8 +33,8 @@ const menuItems = [
       { href: "/movimentacoes/devolucao", label: "Registrar Devolução", icon: Undo2 },
       { href: "/movimentacoes/garantia", label: "Registrar Garantia", icon: ShieldCheck },
   ]},
-  { href: "/consultas", label: "Consultas", icon: Search },
-  { href: "/consultas", label: "Relatórios", icon: FileText },
+  { href: "/consultas", label: "Consultas e Relatórios", icon: Search },
+  { href: "/backup", label: "Backup / Restore", icon: DatabaseBackup },
 ];
 
 export function AppLayout({ children }: { children: React.ReactNode }) {

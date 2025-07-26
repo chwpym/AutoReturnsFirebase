@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function RelatoriosPage() {
+export default function RelatoriosRedirectPage() {
   const router = useRouter();
 
   useEffect(() => {
