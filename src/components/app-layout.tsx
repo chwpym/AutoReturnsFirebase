@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { QueryProvider } from './query-provider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const menuItems = [
+const mainMenuItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { 
     isGroup: true, 
@@ -43,8 +43,11 @@ const menuItems = [
       { href: "/movimentacoes/garantia", label: "Registrar Garantia", icon: ShieldCheck },
   ]},
   { href: "/consultas", label: "Consultas e Relatórios", icon: Search },
-  { href: "/backup", label: "Backup", icon: DatabaseBackup },
 ];
+
+const footerMenuItems = [
+    { href: "/backup", label: "Backup", icon: DatabaseBackup },
+]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
@@ -66,7 +69,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <nav className="sidebar-nav">
-              {menuItems.map((item, index) => (
+              {mainMenuItems.map((item, index) => (
                 <div key={index} className="nav-group">
                   {item.isGroup ? (
                     <Collapsible defaultOpen={true}>
@@ -96,6 +99,15 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
               ))}
             </nav>
+
+            <div className="sidebar-footer">
+                 {footerMenuItems.map((item) => (
+                     <Link href={item.href} key={item.href} className={cn("nav-item", pathname === item.href && "active")}>
+                        <item.icon className="nav-item-icon" />
+                        <span className="nav-item-text">{item.label}</span>
+                    </Link>
+                ))}
+            </div>
             
         </aside>
         <main className="main-content">
