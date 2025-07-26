@@ -80,8 +80,6 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
-import html2canvas from 'html2canvas';
-
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDFWithAutoTable;
@@ -339,84 +337,64 @@ export default function ConsultasPage() {
     }
   };
   
-  const handleGeneratePdf = async () => {
+  const handleGeneratePdf = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
 
-    const logoElement = document.getElementById('logo-para-pdf');
-    if (!logoElement) {
-        toast({ title: 'Erro: Logo não encontrado no DOM', variant: 'destructive' });
-        return;
-    }
-
-    let logoImgData = '';
-    try {
-        const canvas = await html2canvas(logoElement as HTMLElement);
-        logoImgData = canvas.toDataURL('image/png');
-    } catch (e) {
-        console.error("Erro ao processar logo com html2canvas:", e);
-        toast({
-            title: "Aviso",
-            description: "Não foi possível adicionar o logo ao PDF, mas o relatório foi gerado.",
-            variant: "default"
-        });
-    }
-
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     const margin = 14;
+    const pageWidth = doc.internal.pageSize.getWidth();
 
     const drawHeader = (data: any) => {
-        if (logoImgData) {
-            try {
-                doc.addImage(logoImgData, 'PNG', data.settings.margin.left, 10, 40, 15);
-            } catch (e) {
-                console.error("Erro ao adicionar imagem ao PDF:", e);
-            }
+        // Company Name
+        doc.setFontSize(16);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Original Auto Peças', margin, 15);
+        
+        // Address and Contact
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", margin, 21);
+        doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", margin, 25);
+
+        // Report Title
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Relatório de Movimentações', pageWidth - margin, 15, { align: 'right' });
+
+        // Filters Summary
+        const filtersSummary = appliedFiltersList();
+        if (filtersSummary) {
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Filtros Aplicados: ${filtersSummary}`, pageWidth - margin, 21, { align: 'right', maxWidth: pageWidth / 2 });
         }
       
-      doc.setFontSize(16);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Original Auto Peças', data.settings.margin.left + 45, 15, { align: 'left' });
-      
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", data.settings.margin.left + 45, 20);
-      doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", data.settings.margin.left + 45, 24);
-    
-      doc.setDrawColor(180, 180, 180);
-      doc.line(data.settings.margin.left, 40, doc.internal.pageSize.getWidth() - data.settings.margin.right, 40);
+        // Header line
+        doc.setDrawColor(180, 180, 180);
+        doc.line(margin, 30, pageWidth - margin, 30);
     };
 
     const drawFooter = (data: any) => {
         const pageHeight = doc.internal.pageSize.getHeight();
         const pageCount = doc.internal.getNumberOfPages();
         doc.setDrawColor(180, 180, 180);
-        doc.line(data.settings.margin.left, pageHeight - 15, doc.internal.pageSize.getWidth() - data.settings.margin.right, pageHeight - 15);
+        doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
   
         doc.setFontSize(8);
         doc.text(
           `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-          data.settings.margin.left,
+          margin,
           pageHeight - 10
         );
         doc.text(
           `Página ${data.pageNumber} de ${pageCount}`,
-          doc.internal.pageSize.getWidth() - data.settings.margin.right,
+          pageWidth - margin,
           pageHeight - 10,
           { align: 'right' }
         );
-    }
-  
-    const filtersSummary = appliedFiltersList();
-    if (filtersSummary) {
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'bold');
-        const filtersText = `Filtros Aplicados: `;
-        doc.text(filtersText, margin, 34);
-        doc.setFont('helvetica', 'normal');
-        doc.text(filtersSummary, margin + doc.getTextWidth(filtersText), 34, { maxWidth: doc.internal.pageSize.getWidth() - margin * 3 - doc.getTextWidth(filtersText) });
     }
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
@@ -430,7 +408,11 @@ export default function ConsultasPage() {
         } else if (col.id === 'acaoRetorno') {
             value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
         } else if ((col.id as keyof Movimentacao) in mov) {
-            value = (mov as any)[col.id];
+            const movKey = col.id as keyof Movimentacao;
+            // Check if property exists before accessing it
+            if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
+                value = mov[movKey];
+            }
         }
   
         if (value instanceof Timestamp) {
@@ -447,12 +429,12 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: 45,
+      startY: 35,
       didDrawPage: (data) => {
         drawHeader(data);
         drawFooter(data);
       },
-      margin: { top: 45, right: margin, bottom: 20, left: margin }
+      margin: { top: 35, right: margin, bottom: 20, left: margin }
     });
   
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -510,12 +492,6 @@ export default function ConsultasPage() {
 
   return (
     <div className="space-y-6">
-      <img
-          id="logo-para-pdf"
-          src="/images/logo.png"
-          alt="Logo da Original Auto Peças"
-          style={{ display: 'none' }}
-      />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
