@@ -115,8 +115,8 @@ interface Filters {
 type SortableKeys = 'dataMovimentacao' | 'tipoMovimentacao' | 'pecaDescricao' | 'clienteNome' | 'acaoRetorno' | 'requisicaoVenda';
 
 type SortConfig = {
-    key: SortableKeys;
-    direction: 'ascending' | 'descending';
+  key: SortableKeys;
+  direction: 'ascending' | 'descending';
 } | null;
 
 
@@ -134,65 +134,65 @@ const initialFilters: Filters = {
 };
 
 const fetchMovimentacoes = async (filters: Filters): Promise<Movimentacao[]> => {
-    const collectionRef = collection(db, 'movimentacoes');
-    let constraints: QueryConstraint[] = [];
+  const collectionRef = collection(db, 'movimentacoes');
+  let constraints: QueryConstraint[] = [];
 
-    if (filters.tipoMovimentacao !== 'Todas') {
-        constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
-    }
-    if (
-        filters.statusGarantia !== 'Todos' &&
-        (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')
-    ) {
-        constraints.push(where('acaoRetorno', '==', filters.statusGarantia));
-    }
-    if (filters.dataInicio) {
-        constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
-    }
-    if (filters.dataFim) {
-        const endOfDay = new Date(filters.dataFim);
-        endOfDay.setHours(23, 59, 59, 999);
-        constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
-    }
-    if (filters.clienteId) {
-        constraints.push(where('clienteId', '==', filters.clienteId));
-    }
-    if (filters.mecanicoId) {
-        constraints.push(where('mecanicoId', '==', filters.mecanicoId));
-    }
-    if (filters.fornecedorId && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
-        constraints.push(where('fornecedorId', '==', filters.fornecedorId));
-    }
-    if (filters.pecaCodigo) {
-        constraints.push(where('pecaCodigo', '==', filters.pecaCodigo));
-    }
-    if (filters.requisicaoVenda) {
-        constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
-    }
-    if (filters.numeroNF) {
-        constraints.push(where('nfSaida', '==', filters.numeroNF));
-    }
+  if (filters.tipoMovimentacao !== 'Todas') {
+    constraints.push(where('tipoMovimentacao', '==', filters.tipoMovimentacao));
+  }
+  if (
+    filters.statusGarantia !== 'Todos' &&
+    (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')
+  ) {
+    constraints.push(where('acaoRetorno', '==', filters.statusGarantia));
+  }
+  if (filters.dataInicio) {
+    constraints.push(where('dataMovimentacao', '>=', Timestamp.fromDate(filters.dataInicio)));
+  }
+  if (filters.dataFim) {
+    const endOfDay = new Date(filters.dataFim);
+    endOfDay.setHours(23, 59, 59, 999);
+    constraints.push(where('dataMovimentacao', '<=', Timestamp.fromDate(endOfDay)));
+  }
+  if (filters.clienteId) {
+    constraints.push(where('clienteId', '==', filters.clienteId));
+  }
+  if (filters.mecanicoId) {
+    constraints.push(where('mecanicoId', '==', filters.mecanicoId));
+  }
+  if (filters.fornecedorId && (filters.tipoMovimentacao === 'Garantia' || filters.tipoMovimentacao === 'Todas')) {
+    constraints.push(where('fornecedorId', '==', filters.fornecedorId));
+  }
+  if (filters.pecaCodigo) {
+    constraints.push(where('pecaCodigo', '==', filters.pecaCodigo));
+  }
+  if (filters.requisicaoVenda) {
+    constraints.push(where('requisicaoVenda', '==', filters.requisicaoVenda));
+  }
+  if (filters.numeroNF) {
+    constraints.push(where('nfSaida', '==', filters.numeroNF));
+  }
 
-    const q = query(collectionRef, ...constraints);
-    const querySnapshot = await getDocs(q);
-    
-    return querySnapshot.docs.map(
-        (doc) => ({ id: doc.id, ...doc.data() } as Movimentacao)
-    );
+  const q = query(collectionRef, ...constraints);
+  const querySnapshot = await getDocs(q);
+
+  return querySnapshot.docs.map(
+    (doc) => ({ id: doc.id, ...doc.data() } as Movimentacao)
+  );
 };
 
 const reportColumns = [
-    { id: 'dataMovimentacao', label: 'Data' },
-    { id: 'tipoMovimentacao', label: 'Tipo' },
-    { id: 'pecaCodigo', label: 'Cód. Peça' },
-    { id: 'pecaDescricao', label: 'Descrição Peça' },
-    { id: 'quantidade', label: 'Qtd' },
-    { id: 'clienteNome', label: 'Cliente' },
-    { id: 'mecanicoNome', label: 'Mecânico' },
-    { id: 'fornecedorNome', label: 'Fornecedor' },
-    { id: 'requisicaoVenda', label: 'Req. Venda' },
-    { id: 'nfSaida', label: 'NF Saída' },
-    { id: 'acaoRetorno', label: 'Status' },
+  { id: 'dataMovimentacao', label: 'Data' },
+  { id: 'tipoMovimentacao', label: 'Tipo' },
+  { id: 'pecaCodigo', label: 'Cód. Peça' },
+  { id: 'pecaDescricao', label: 'Descrição Peça' },
+  { id: 'quantidade', label: 'Qtd' },
+  { id: 'clienteNome', label: 'Cliente' },
+  { id: 'mecanicoNome', label: 'Mecânico' },
+  { id: 'fornecedorNome', label: 'Fornecedor' },
+  { id: 'requisicaoVenda', label: 'Req. Venda' },
+  { id: 'nfSaida', label: 'NF Saída' },
+  { id: 'acaoRetorno', label: 'Status' },
 ];
 
 export default function ConsultasPage() {
@@ -202,10 +202,10 @@ export default function ConsultasPage() {
   const [filters, setFilters] = React.useState<Filters>(initialFilters);
   const [hasSearched, setHasSearched] = React.useState(false);
   const [sortConfig, setSortConfig] = React.useState<SortConfig>({ key: 'dataMovimentacao', direction: 'descending' });
-  
+
   const [editingGarantia, setEditingGarantia] = React.useState<MovimentacaoGarantia | null>(null);
   const [isGarantiaModalOpen, setIsGarantiaModalOpen] = React.useState(false);
-  
+
   const [editingDevolucao, setEditingDevolucao] = React.useState<MovimentacaoDevolucao | null>(null);
   const [isDevolucaoModalOpen, setIsDevolucaoModalOpen] = React.useState(false);
 
@@ -234,7 +234,7 @@ export default function ConsultasPage() {
       sortableItems.sort((a, b) => {
         let aValue: any;
         let bValue: any;
-  
+
         if (sortConfig.key === 'acaoRetorno') {
           aValue = a.tipoMovimentacao === 'Garantia' ? (a as MovimentacaoGarantia).acaoRetorno : '';
           bValue = b.tipoMovimentacao === 'Garantia' ? (b as MovimentacaoGarantia).acaoRetorno : '';
@@ -242,21 +242,21 @@ export default function ConsultasPage() {
           aValue = (a as any)[sortConfig.key];
           bValue = (b as any)[sortConfig.key];
         }
-        
+
         if (aValue instanceof Timestamp && bValue instanceof Timestamp) {
-            const aDate = aValue.toDate();
-            const bDate = bValue.toDate();
-            if (aDate < bDate) return sortConfig.direction === 'ascending' ? -1 : 1;
-            if (aDate > bDate) return sortConfig.direction === 'ascending' ? 1 : -1;
-            return 0;
+          const aDate = aValue.toDate();
+          const bDate = bValue.toDate();
+          if (aDate < bDate) return sortConfig.direction === 'ascending' ? -1 : 1;
+          if (aDate > bDate) return sortConfig.direction === 'ascending' ? 1 : -1;
+          return 0;
         }
-        
+
         const valA = String(aValue || '').toLowerCase();
         const valB = String(bValue || '').toLowerCase();
 
         if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
-        
+
         return 0;
       });
     }
@@ -304,11 +304,11 @@ export default function ConsultasPage() {
 
   const handleEdit = (mov: Movimentacao) => {
     if (mov.tipoMovimentacao === 'Garantia') {
-        setEditingGarantia(mov as MovimentacaoGarantia);
-        setIsGarantiaModalOpen(true);
+      setEditingGarantia(mov as MovimentacaoGarantia);
+      setIsGarantiaModalOpen(true);
     } else if (mov.tipoMovimentacao === 'Devolução') {
-        setEditingDevolucao(mov as MovimentacaoDevolucao);
-        setIsDevolucaoModalOpen(true);
+      setEditingDevolucao(mov as MovimentacaoDevolucao);
+      setIsDevolucaoModalOpen(true);
     }
   }
 
@@ -317,7 +317,7 @@ export default function ConsultasPage() {
     setEditingGarantia(null);
     setIsDevolucaoModalOpen(false);
     setEditingDevolucao(null);
-    refetch(); 
+    refetch();
   }
 
   const handleDelete = async (id: string) => {
@@ -337,18 +337,18 @@ export default function ConsultasPage() {
       });
     }
   };
-  
+
   const fetchEmpresaConfig = async (): Promise<EmpresaConfig | null> => {
     try {
-        const docRef = doc(db, 'configuracoes', 'dadosEmpresa');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-            return docSnap.data() as EmpresaConfig;
-        }
-        return null;
+      const docRef = doc(db, 'configuracoes', 'dadosEmpresa');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        return docSnap.data() as EmpresaConfig;
+      }
+      return null;
     } catch (error) {
-        console.error("Failed to fetch company config:", error);
-        return null;
+      console.error("Failed to fetch company config:", error);
+      return null;
     }
   }
 
@@ -365,111 +365,6 @@ export default function ConsultasPage() {
     return list.join('  •  ');
   }
 
-  /*const handleGeneratePdf = async () => {
-    if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
-      toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
-      return;
-    }
-
-    const empresaConfig = await fetchEmpresaConfig();
-    const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-    
-    const pageMargin = { top: 15, right: 15, bottom: 20, left: 15 };
-    let totalPages = 1;
-
-    const drawHeader = (data: any) => {
-        const doc = data.doc as jsPDF;
-        
-        const logoWidth = 30;
-        const logoHeight = 15;
-        const logoX = pageMargin.left;
-        const logoY = 15;
-        const textStartX = logoX + logoWidth + 5;
-
-        // Coluna Esquerda
-        if(empresaConfig?.logoDataUrl) {
-            try {
-                doc.addImage(empresaConfig.logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-            } catch (e) {
-                console.error("Error adding logo to PDF", e);
-            }
-        }
-
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(empresaConfig?.nome || 'Nome da Empresa', textStartX, logoY + 5);
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(empresaConfig?.endereco || 'Endereço', textStartX, logoY + 11);
-        const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
-        doc.text(contactInfo, textStartX, logoY + 16);
-
-        // Coluna Direita
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, 20, { align: 'right' });
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
-        const splitFilters = doc.splitTextToSize(filtersText, 80); // wrap text
-        doc.text(splitFilters, doc.internal.pageSize.getWidth() - pageMargin.right, 26, { align: 'right' });
-    };
-
-    const drawFooter = (data: any) => {
-        const doc = data.doc as jsPDF;
-        const pageCount = doc.internal.pages.length -1;
-        doc.setFontSize(9);
-        doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
-    }
-  
-    const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
-    const head = [selectedColumns.map(c => c.label)];
-    const body = sortedMovimentacoes.map(mov => {
-      return selectedColumns.map(col => {
-        let value: any = '-';
-  
-        if (col.id === 'fornecedorNome') {
-            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
-        } else if (col.id === 'acaoRetorno') {
-            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
-        } else if ((col.id as keyof Movimentacao) in mov) {
-            const movKey = col.id as keyof Movimentacao;
-            if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
-                value = mov[movKey];
-            }
-        }
-  
-        if (value instanceof Timestamp) {
-          value = format(value.toDate(), 'dd/MM/yy HH:mm');
-        } else if (value !== null && value !== undefined) {
-          value = String(value);
-        } else {
-          value = '-';
-        }
-        return value;
-      });
-    });
-  
-    doc.autoTable({
-      head: head,
-      body: body,
-      startY: 45,
-      didDrawPage: (data) => {
-        drawHeader(data);
-        drawFooter(data);
-      },
-      margin: pageMargin,
-      headStyles: {
-        fillColor: [24, 119, 242] // #1877F2 (Primary color)
-      }
-    });
-
-    doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
-    setIsReportModalOpen(false);
-  };*/
-  
   const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
@@ -478,78 +373,78 @@ export default function ConsultasPage() {
 
     const empresaConfig = await fetchEmpresaConfig();
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-    
+
     // --- AJUSTE 1: DEFINIR MARGENS E PONTO DE INÍCIO DA TABELA ---
     const pageMargin = { top: 15, right: 15, bottom: 20, left: 15 };
     const tableStartY = 40; // <<<< VALOR AJUSTADO PARA DIMINUIR O ESPAÇO
 
     const drawHeader = (data: any) => {
-        const doc = data.doc as jsPDF;
-        
-        const logoWidth = 30;
-        const logoHeight = 15;
-        const logoX = pageMargin.left;
-        const logoY = pageMargin.top;
-        const textStartX = logoX + logoWidth + 5;
+      const doc = data.doc as jsPDF;
 
-        // Coluna Esquerda
-        if(empresaConfig?.logoDataUrl) {
-            try {
-                doc.addImage(empresaConfig.logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-            } catch (e) {
-                console.error("Error adding logo to PDF", e);
-            }
+      const logoWidth = 30;
+      const logoHeight = 15;
+      const logoX = pageMargin.left;
+      const logoY = pageMargin.top;
+      const textStartX = logoX + logoWidth + 5;
+
+      // Coluna Esquerda
+      if (empresaConfig?.logoDataUrl) {
+        try {
+          doc.addImage(empresaConfig.logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        } catch (e) {
+          console.error("Error adding logo to PDF", e);
         }
+      }
 
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(empresaConfig?.nome || 'Nome da Empresa', textStartX, logoY + 5);
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(empresaConfig?.endereco || 'Endereço', textStartX, logoY + 11);
-        const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
-        doc.text(contactInfo, textStartX, logoY + 16);
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(empresaConfig?.nome || 'Nome da Empresa', textStartX, logoY + 5);
 
-        // Coluna Direita
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 5, { align: 'right' });
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        
-        // --- AJUSTE 2: ADICIONAR "GERADO EM" E AJUSTAR POSIÇÃO DOS FILTROS ---
-        const dataGeracao = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
-        doc.text(dataGeracao, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 11, { align: 'right' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(empresaConfig?.endereco || 'Endereço', textStartX, logoY + 11);
+      const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
+      doc.text(contactInfo, textStartX, logoY + 16);
 
-        const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
-        doc.text(filtersText, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 16, { align: 'right' });
+      // Coluna Direita
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 5, { align: 'right' });
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+
+      // --- AJUSTE 2: ADICIONAR "GERADO EM" E AJUSTAR POSIÇÃO DOS FILTROS ---
+      const dataGeracao = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+      doc.text(dataGeracao, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 11, { align: 'right' });
+
+      const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
+      doc.text(filtersText, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 16, { align: 'right' });
     };
 
     const drawFooter = (data: any) => {
-        const doc = data.doc as jsPDF;
-        doc.setFontSize(9);
-        doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+      const doc = data.doc as jsPDF;
+      doc.setFontSize(9);
+      doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
     }
-  
+
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
     const head = [selectedColumns.map(c => c.label)];
     const body = sortedMovimentacoes.map(mov => {
       return selectedColumns.map(col => {
         let value: any = '-';
-  
+
         if (col.id === 'fornecedorNome') {
-            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
         } else if (col.id === 'acaoRetorno') {
-            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
+          value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
         } else if ((col.id as keyof Movimentacao) in mov) {
-            const movKey = col.id as keyof Movimentacao;
-            if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
-                value = mov[movKey];
-            }
+          const movKey = col.id as keyof Movimentacao;
+          if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
+            value = mov[movKey];
+          }
         }
-  
+
         if (value instanceof Timestamp) {
           value = format(value.toDate(), 'dd/MM/yy HH:mm');
         } else if (value !== null && value !== undefined) {
@@ -560,7 +455,7 @@ export default function ConsultasPage() {
         return value;
       });
     });
-  
+
     doc.autoTable({
       head: head,
       body: body,
@@ -578,7 +473,7 @@ export default function ConsultasPage() {
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
   };
-  
+
   const handleExportCSV = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({
@@ -601,7 +496,7 @@ export default function ConsultasPage() {
     }));
 
     const csv = Papa.unparse(dataToExport);
-    const bom = "\uFEFF"; 
+    const bom = "\uFEFF";
     const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -627,7 +522,7 @@ export default function ConsultasPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
             <div className="space-y-2">
               <Label>Tipo de Movimentação</Label>
               <Select
@@ -771,26 +666,26 @@ export default function ConsultasPage() {
 
       <Card id="report-section">
         <CardHeader>
-            <div className="flex justify-between items-center">
-                <div>
-                    <CardTitle>Resultados da Busca</CardTitle>
-                    <CardDescription>
-                        {hasSearched
-                        ? `${sortedMovimentacoes?.length ?? 0} resultado(s) encontrado(s).`
-                        : 'Aguardando busca...'}
-                    </CardDescription>
-                </div>
-                <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => setIsReportModalOpen(true)} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
-                        <Printer className="mr-2 h-4 w-4" />
-                        Gerar Relatório
-                    </Button>
-                    <Button variant="outline" onClick={handleExportCSV} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Exportar para CSV
-                    </Button>
-                </div>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Resultados da Busca</CardTitle>
+              <CardDescription>
+                {hasSearched
+                  ? `${sortedMovimentacoes?.length ?? 0} resultado(s) encontrado(s).`
+                  : 'Aguardando busca...'}
+              </CardDescription>
             </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsReportModalOpen(true)} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
+                <Printer className="mr-2 h-4 w-4" />
+                Gerar Relatório
+              </Button>
+              <Button variant="outline" onClick={handleExportCSV} disabled={!sortedMovimentacoes || sortedMovimentacoes.length === 0}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar para CSV
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="relative w-full overflow-auto print:overflow-visible">
@@ -798,40 +693,40 @@ export default function ConsultasPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('dataMovimentacao')}>
-                          Data
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('dataMovimentacao')}>
+                      Data
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('tipoMovimentacao')}>
-                          Tipo
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('tipoMovimentacao')}>
+                      Tipo
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('pecaDescricao')}>
-                          Peça
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('pecaDescricao')}>
+                      Peça
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('clienteNome')}>
-                          Cliente
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('clienteNome')}>
+                      Cliente
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('requisicaoVenda')}>
-                          Requisição
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('requisicaoVenda')}>
+                      Requisição
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead>
-                      <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
-                          Status
-                          <ArrowUpDown className="ml-2 h-4 w-4" />
-                      </Button>
+                    <Button variant="ghost" onClick={() => requestSort('acaoRetorno')}>
+                      Status
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
                   </TableHead>
                   <TableHead className="w-[80px] text-right">Ações</TableHead>
                 </TableRow>
@@ -886,11 +781,11 @@ export default function ConsultasPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                             <DropdownMenuItem onSelect={() => handleEdit(mov)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Editar
+                            <DropdownMenuItem onSelect={() => handleEdit(mov)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
                             </DropdownMenuItem>
-                           
+
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
                                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
@@ -930,36 +825,36 @@ export default function ConsultasPage() {
           </div>
         </CardContent>
       </Card>
-      
+
       {editingGarantia && (
         <Dialog open={isGarantiaModalOpen} onOpenChange={setIsGarantiaModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
-                    <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
-                </DialogHeader>
-                <GarantiaForm 
-                    movimentacaoId={editingGarantia.id} 
-                    onSaveSuccess={handleEditSuccess}
-                    onCancel={() => setIsGarantiaModalOpen(false)}
-                />
-            </DialogContent>
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Solicitação de Garantia</DialogTitle>
+              <DialogDescription>Altere os dados do registro de garantia.</DialogDescription>
+            </DialogHeader>
+            <GarantiaForm
+              movimentacaoId={editingGarantia.id}
+              onSaveSuccess={handleEditSuccess}
+              onCancel={() => setIsGarantiaModalOpen(false)}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
       {editingDevolucao && (
         <Dialog open={isDevolucaoModalOpen} onOpenChange={setIsDevolucaoModalOpen}>
-            <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <DialogTitle>Editar Registro de Devolução</DialogTitle>
-                    <DialogDescription>Altere os dados do registro de devolução.</DialogDescription>
-                </DialogHeader>
-                <DevolucaoForm 
-                    movimentacaoId={editingDevolucao.id} 
-                    onSaveSuccess={handleEditSuccess}
-                    onCancel={() => setIsDevolucaoModalOpen(false)}
-                />
-            </DialogContent>
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Registro de Devolução</DialogTitle>
+              <DialogDescription>Altere os dados do registro de devolução.</DialogDescription>
+            </DialogHeader>
+            <DevolucaoForm
+              movimentacaoId={editingDevolucao.id}
+              onSaveSuccess={handleEditSuccess}
+              onCancel={() => setIsDevolucaoModalOpen(false)}
+            />
+          </DialogContent>
         </Dialog>
       )}
 
