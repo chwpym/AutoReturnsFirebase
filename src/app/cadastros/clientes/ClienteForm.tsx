@@ -45,7 +45,7 @@ type ClienteFormValues = z.infer<typeof clienteSchema>;
 
 interface ClienteFormProps {
   isModal?: boolean;
-  initialValues?: Partial<Cliente> | null;
+  initialValues?: Cliente | null;
   onSaveSuccess?: (newItem: ComboboxOption) => void;
   onCancel?: () => void;
 }
