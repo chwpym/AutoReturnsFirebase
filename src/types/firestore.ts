@@ -66,3 +66,14 @@ export interface MovimentacaoGarantia extends MovimentacaoBase {
 }
 
 export type Movimentacao = MovimentacaoDevolucao | MovimentacaoGarantia;
+
+export interface EmpresaConfig {
+  id?: string;
+  logoDataUrl?: string;
+  nome: string;
+  endereco: string;
+  telefone: string;
+  email: string;
+  website?: string;
+  cnpj?: string;
+}

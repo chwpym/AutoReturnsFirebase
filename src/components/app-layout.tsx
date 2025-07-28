@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   Search,
   DatabaseBackup,
-  ChevronDown
+  ChevronDown,
+  Cog
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
@@ -69,6 +70,17 @@ const mainMenuItems: MenuItem[] = [
   { href: "/consultas", label: "Consultas e Relatórios", icon: Search },
 ];
 
+const settingsMenuItems: MenuItem[] = [
+    { 
+        isGroup: true,
+        label: "Configurações",
+        id: "configuracoes",
+        items: [
+            { href: "/configuracoes/empresa", label: "Dados da Empresa", icon: Cog },
+        ]
+    }
+];
+
 const footerMenuItems: SingleNavItem[] = [
     { href: "/backup", label: "Backup", icon: DatabaseBackup },
 ]
@@ -80,6 +92,38 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
   };
+
+  const renderNavItems = (items: MenuItem[]) => {
+    return items.map((item, index) => (
+      <div key={index} className="nav-group">
+        {item.isGroup ? (
+          <Collapsible defaultOpen={true}>
+            <CollapsibleTrigger asChild>
+               <button className="nav-group-trigger">
+                <span className="nav-group-label">{item.label}</span>
+                <ChevronDown className="nav-group-chevron" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="nav-group-content">
+                  {item.items?.map(subItem => (
+                      <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
+                          <subItem.icon className="nav-item-icon" />
+                          <span className="nav-item-text">{subItem.label}</span>
+                      </Link>
+                  ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+        ) : (
+          <Link href={item.href || '#'} key={`${item.href}-${item.label}`} className={cn("nav-item", pathname === item.href && "active")}>
+              {item.icon && <item.icon className="nav-item-icon" />}
+              <span className="nav-item-text">{item.label}</span>
+          </Link>
+        )}
+      </div>
+    ));
+  }
 
   return (
     <QueryProvider>
@@ -93,38 +137,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </div>
 
             <nav className="sidebar-nav">
-              {mainMenuItems.map((item, index) => (
-                <div key={index} className="nav-group">
-                  {item.isGroup ? (
-                    <Collapsible defaultOpen={true}>
-                      <CollapsibleTrigger asChild>
-                         <button className="nav-group-trigger">
-                          <span className="nav-group-label">{item.label}</span>
-                          <ChevronDown className="nav-group-chevron" />
-                        </button>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <div className="nav-group-content">
-                            {item.items?.map(subItem => (
-                                <Link href={subItem.href} key={subItem.href} className={cn("nav-item", pathname === subItem.href && "active")}>
-                                    <subItem.icon className="nav-item-icon" />
-                                    <span className="nav-item-text">{subItem.label}</span>
-                                </Link>
-                            ))}
-                        </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  ) : (
-                    <Link href={item.href || '#'} key={`${item.href}-${item.label}`} className={cn("nav-item", pathname === item.href && "active")}>
-                        {item.icon && <item.icon className="nav-item-icon" />}
-                        <span className="nav-item-text">{item.label}</span>
-                    </Link>
-                  )}
-                </div>
-              ))}
+              {renderNavItems(mainMenuItems)}
             </nav>
 
             <div className="sidebar-footer">
+                <nav>
+                    {renderNavItems(settingsMenuItems)}
+                </nav>
                  {footerMenuItems.map((item) => (
                      <Link href={item.href} key={item.href} className={cn("nav-item", pathname === item.href && "active")}>
                         {item.icon && <item.icon className="nav-item-icon" />}

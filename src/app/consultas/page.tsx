@@ -11,9 +11,10 @@ import {
   QueryConstraint,
   deleteDoc,
   doc,
+  getDoc
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao } from '@/types/firestore';
+import type { Movimentacao, MovimentacaoGarantia, MovimentacaoDevolucao, EmpresaConfig } from '@/types/firestore';
 import {
   Card,
   CardContent,
@@ -337,45 +338,64 @@ export default function ConsultasPage() {
     }
   };
   
-  const handleGeneratePdf = () => {
+  const fetchEmpresaConfig = async (): Promise<EmpresaConfig | null> => {
+    try {
+        const docRef = doc(db, 'configuracoes', 'dadosEmpresa');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as EmpresaConfig;
+        }
+        return null;
+    } catch (error) {
+        console.error("Failed to fetch company config:", error);
+        return null;
+    }
+  }
+
+  const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
     }
 
+    const empresaConfig = await fetchEmpresaConfig();
+
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
-    let totalPages = 1; // Placeholder, will be updated.
+    let finalY = 30; // Initial Y position after header
 
-    const drawHeader = (data: any) => {
-        // Company Name
+    const drawHeader = () => {
+        if (empresaConfig?.logoDataUrl) {
+            try {
+                const img = new Image();
+                img.src = empresaConfig.logoDataUrl;
+                // Check image type for jspdf
+                const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
+                    doc.addImage(img, imgType, margin, 12, 30, 15);
+                }
+            } catch (e) { console.error("Error adding image to PDF", e); }
+        }
+        
         doc.setFontSize(16);
         doc.setFont('helvetica', 'bold');
-        doc.text('Original Auto Peças', margin, 15);
-        
-        // Address and Contact
+        doc.text(empresaConfig?.nome || 'Relatório de Movimentações', pageWidth / 2, 15, { align: 'center' });
+
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text("Rua Rui Barbosa, 400, Vila São José, Lins - SP, 16401-040", margin, 21);
-        doc.text("Telefone: (14) 3532-3296 | E-mail: original-autopecas@hotmail.com", margin, 25);
-
-        // Report Title
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Relatório de Movimentações', pageWidth - margin, 15, { align: 'right' });
-
-        // Filters Summary
+        const contactInfo = [empresaConfig?.endereco, `Tel: ${empresaConfig?.telefone}`, `Email: ${empresaConfig?.email}`, empresaConfig?.website].filter(Boolean);
+        doc.text(contactInfo.join(' | '), pageWidth / 2, 21, { align: 'center', maxWidth: pageWidth - (margin*2) });
+      
         const filtersSummary = appliedFiltersList();
         if (filtersSummary) {
             doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Filtros Aplicados: ${filtersSummary}`, pageWidth - margin, 21, { align: 'right', maxWidth: pageWidth / 2 });
+            doc.setFont('helvetica', 'italic');
+            doc.text(`Filtros: ${filtersSummary}`, pageWidth - margin, 28, { align: 'right', maxWidth: pageWidth / 2 });
         }
-      
-        // Header line
+
         doc.setDrawColor(180, 180, 180);
-        doc.line(margin, 30, pageWidth - margin, 30);
+        doc.line(margin, finalY, pageWidth - margin, finalY);
     };
 
     const drawFooter = (data: any) => {
@@ -390,7 +410,7 @@ export default function ConsultasPage() {
           pageHeight - 10
         );
         doc.text(
-          `Página ${data.pageNumber} de ${totalPages}`,
+          `Página ${data.pageNumber} de ${data.pageCount}`,
           pageWidth - margin,
           pageHeight - 10,
           { align: 'right' }
@@ -409,7 +429,6 @@ export default function ConsultasPage() {
             value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
         } else if ((col.id as keyof Movimentacao) in mov) {
             const movKey = col.id as keyof Movimentacao;
-            // Check if property exists before accessing it
             if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
                 value = mov[movKey];
             }
@@ -429,20 +448,13 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: 35,
+      startY: finalY + 5,
       didDrawPage: (data) => {
-        drawHeader(data);
+        drawHeader();
         drawFooter(data);
       },
       margin: { top: 35, right: margin, bottom: 20, left: margin }
     });
-    
-    // @ts-ignore
-    totalPages = doc.internal.pages.length -1;
-    for(let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        drawFooter({ pageNumber: i });
-    }
   
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
