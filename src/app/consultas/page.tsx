@@ -363,59 +363,73 @@ export default function ConsultasPage() {
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     let finalY = 40; // Initial Y position for the table
 
-    const drawHeader = () => {
-      // Draw Logo
-      if (empresaConfig?.logoDataUrl) {
-          try {
-              const img = new Image();
-              img.src = empresaConfig.logoDataUrl;
-              const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-              if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
-                  doc.addImage(img, imgType, margin, 12, 30, 15);
-              }
-          } catch (e) { console.error("Error adding image to PDF", e); }
-      }
-      
-      // Draw Company Name
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text(empresaConfig?.nome || 'Relatório de Movimentações', pageWidth / 2, 20, { align: 'center' });
+    const drawHeader = (data: any) => {
+        const pageNumber = data.pageNumber;
+        const pageCount = doc.internal.pages.length -1;
+    
+        // ---- Left Column ----
+        const logoWidth = 25;
+        const logoHeight = 25;
+        const logoX = margin;
+        const logoY = 15;
+        const textX = logoX + logoWidth + 5;
+    
+        // Draw Logo
+        if (empresaConfig?.logoDataUrl) {
+            try {
+                const img = new Image();
+                img.src = empresaConfig.logoDataUrl;
+                const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+                if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
+                    doc.addImage(img, imgType, logoX, logoY, logoWidth, logoHeight);
+                }
+            } catch (e) { console.error("Error adding image to PDF", e); }
+        }
+    
+        // Draw Company Info
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(empresaConfig?.nome || '', textX, logoY + 5);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        const companyInfo = [
+            empresaConfig?.endereco,
+            `Tel: ${empresaConfig?.telefone || ''}`,
+            `Email: ${empresaConfig?.email || ''}`,
+            empresaConfig?.website || '',
+        ].filter(Boolean);
+        doc.text(companyInfo, textX, logoY + 10, { lineHeightFactor: 1.5 });
+    
+        // ---- Right Column ----
+        const rightColX = pageWidth - margin;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Relatório de Movimentações', rightColX, logoY + 5, { align: 'right' });
+    
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, rightColX, logoY + 10, { align: 'right' });
+    
+        // ---- Filters and Page Number below title
+        const filtersText = `Filtros Aplicados: ${appliedFiltersList() || 'Nenhum'}`;
+        const pageText = `Página ${pageNumber} de ${pageCount}`;
 
-      // Draw Contact Info
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      const contactInfo = [
-          empresaConfig?.endereco || '',
-          `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`,
-          empresaConfig?.website || ''
-      ].filter(Boolean).join('\n');
-      doc.text(contactInfo, pageWidth / 2, 28, { align: 'center' });
+        doc.setFontSize(7);
+        doc.text(filtersText, rightColX, logoY + 15, { align: 'right' });
+        doc.text(pageText, rightColX, logoY + 20, { align: 'right' });
 
-      // Draw line separator
-      doc.setDrawColor(180, 180, 180);
-      doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
+        // Draw line separator
+        doc.setDrawColor(180, 180, 180);
+        finalY = logoY + logoHeight + 8; // Adjust finalY to be below the header content
+        doc.line(margin, finalY - 3, pageWidth - margin, finalY - 3);
     };
 
     const drawFooter = (data: any) => {
-        const pageCount = data.pageCount;
-        const pageHeight = doc.internal.pageSize.getHeight();
-        doc.setDrawColor(180, 180, 180);
-        doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
-  
-        doc.setFontSize(8);
-        doc.text(
-          `Relatório emitido em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-          margin,
-          pageHeight - 10
-        );
-        doc.text(
-          `Página ${data.pageNumber} de ${pageCount}`,
-          pageWidth - margin,
-          pageHeight - 10,
-          { align: 'right' }
-        );
+        // Footer can be used for things that need to be drawn on every page after the table
     }
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
@@ -451,7 +465,7 @@ export default function ConsultasPage() {
       body: body,
       startY: finalY,
       didDrawPage: (data) => {
-        drawHeader();
+        drawHeader(data);
         drawFooter(data);
       },
       margin: { top: finalY, right: margin, bottom: 20, left: margin },
@@ -460,6 +474,19 @@ export default function ConsultasPage() {
       }
     });
   
+    const pageCount = doc.internal.pages.length - 1;
+    for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text(
+            `Página ${i} de ${pageCount}`,
+            pageWidth - margin,
+            pageHeight - 10,
+            { align: 'right' }
+        );
+    }
+
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
   };
@@ -921,3 +948,4 @@ export default function ConsultasPage() {
     </div>
   );
 }
+
