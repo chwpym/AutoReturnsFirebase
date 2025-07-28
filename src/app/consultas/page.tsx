@@ -364,19 +364,21 @@ export default function ConsultasPage() {
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    let finalY = 40; // Initial Y position for the table
+    let finalY = 0; // Will be calculated after header is drawn
 
     const drawHeader = (data: any) => {
         const pageNumber = data.pageNumber;
-        const pageCount = doc.internal.pages.length -1;
-    
-        // ---- Left Column ----
+        const pageCount = (doc.internal as any).pages.length -1;
+        let currentY = 15; // Starting Y position
+
+        // --- Left Column ---
+        const logoX = margin;
+        const logoY = currentY;
         const logoWidth = 25;
         const logoHeight = 25;
-        const logoX = margin;
-        const logoY = 15;
         const textX = logoX + logoWidth + 5;
-    
+        let leftColY = logoY;
+
         // Draw Logo
         if (empresaConfig?.logoDataUrl) {
             try {
@@ -387,12 +389,15 @@ export default function ConsultasPage() {
                     doc.addImage(img, imgType, logoX, logoY, logoWidth, logoHeight);
                 }
             } catch (e) { console.error("Error adding image to PDF", e); }
+        } else {
+             leftColY = logoY;
         }
-    
+        
         // Draw Company Info
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(12);
-        doc.text(empresaConfig?.nome || '', textX, logoY + 5);
+        doc.text(empresaConfig?.nome || '', textX, leftColY);
+        leftColY += 5;
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
@@ -402,34 +407,40 @@ export default function ConsultasPage() {
             `Email: ${empresaConfig?.email || ''}`,
             empresaConfig?.website || '',
         ].filter(Boolean);
-        doc.text(companyInfo, textX, logoY + 10, { lineHeightFactor: 1.5 });
-    
-        // ---- Right Column ----
+        doc.text(companyInfo, textX, leftColY, { lineHeightFactor: 1.5 });
+        leftColY += companyInfo.length * 3; // Approximate height
+
+        const leftColHeight = Math.max(logoHeight, leftColY - logoY);
+
+        // --- Right Column ---
         const rightColX = pageWidth - margin;
+        let rightColY = currentY;
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
-        doc.text('Relatório de Movimentações', rightColX, logoY + 5, { align: 'right' });
+        doc.text('Relatório de Movimentações', rightColX, rightColY, { align: 'right' });
+        rightColY += 6;
     
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, rightColX, logoY + 10, { align: 'right' });
-    
-        // ---- Filters and Page Number below title
+        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, rightColX, rightColY, { align: 'right' });
+        rightColY += 4;
+        
         const filtersText = `Filtros Aplicados: ${appliedFiltersList() || 'Nenhum'}`;
-        const pageText = `Página ${pageNumber} de ${pageCount}`;
+        doc.text(filtersText, rightColX, rightColY, { align: 'right' });
+        rightColY += 4;
+        
+        doc.text(`Página ${pageNumber} de ${pageCount}`, rightColX, rightColY, { align: 'right' });
+        
+        const rightColHeight = rightColY - currentY;
 
-        doc.setFontSize(7);
-        doc.text(filtersText, rightColX, logoY + 15, { align: 'right' });
-        doc.text(pageText, rightColX, logoY + 20, { align: 'right' });
-
-        // Draw line separator
+        // --- Final Y position and Separator Line ---
+        finalY = currentY + Math.max(leftColHeight, rightColHeight) + 8; // Add padding
         doc.setDrawColor(180, 180, 180);
-        finalY = logoY + logoHeight + 8; // Adjust finalY to be below the header content
         doc.line(margin, finalY - 3, pageWidth - margin, finalY - 3);
     };
 
     const drawFooter = (data: any) => {
-        // Footer can be used for things that need to be drawn on every page after the table
+      // Nothing needed here for now
     }
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
@@ -463,9 +474,14 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: finalY,
+      // The startY will be dynamically calculated and passed in `didDrawPage`
+      startY: pageHeight, // Start off-screen, `didDrawPage` will correct it
       didDrawPage: (data) => {
         drawHeader(data);
+        // Correct the startY for the table on the first page
+        if (data.pageNumber === 1) {
+          (data.settings as any).startY = finalY;
+        }
         drawFooter(data);
       },
       margin: { top: finalY, right: margin, bottom: 20, left: margin },
@@ -474,7 +490,7 @@ export default function ConsultasPage() {
       }
     });
   
-    const pageCount = doc.internal.pages.length - 1;
+    const pageCount = (doc.internal as any).pages.length - 1;
     for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
         doc.setFont('helvetica', 'normal');
