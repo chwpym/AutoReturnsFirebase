@@ -81,7 +81,6 @@ import Papa from 'papaparse';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
-import Image from 'next/image';
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDFWithAutoTable;
@@ -361,59 +360,44 @@ export default function ConsultasPage() {
 
     const empresaConfig = await fetchEmpresaConfig();
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
-    const margin = 15;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
     
-    const drawHeader = (data: any) => {
-        // Logo and Company Info (Left)
-        if (empresaConfig?.logoDataUrl) {
-            try {
-                const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
-                    doc.addImage(empresaConfig.logoDataUrl, imgType, margin, margin, 40, 15);
-                }
-            } catch (e) { console.error("Error adding image to PDF", e); }
-        }
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text(empresaConfig?.nome || 'Nome da Empresa', margin, 40);
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text(empresaConfig?.endereco || 'Endereço da Empresa', margin, 45);
-        const contactInfo = [
-            `Telefone: ${empresaConfig?.telefone || ''}`,
-            `Email: ${empresaConfig?.email || ''}`
-        ].filter(Boolean).join(' | ');
-        doc.text(contactInfo, margin, 50);
-
-        // Report Info (Right)
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.text('Relatório de Movimentações', pageWidth - margin, 25, { align: 'right' });
-
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth - margin, 30, { align: 'right' });
-        const filtersText = `Filtros Aplicados: ${appliedFiltersList() || 'Nenhum'}`;
-        const splitFilters = doc.splitTextToSize(filtersText, 80); // Adjust width as needed
-        doc.text(splitFilters, pageWidth - margin, 35, { align: 'right' });
-
-        // Separator Line
-        doc.line(margin, 60, pageWidth - margin, 60);
+    const pageMargin = {
+      top: 10,
+      right: 15,
+      bottom: 15,
+      left: 15
     };
-    
-    const drawFooter = (data: any) => {
-        const pageCount = (doc.internal as any).pages.length - 1;
-        doc.setFontSize(8);
-        doc.text(
-            `Página ${data.pageNumber} de ${pageCount}`,
-            pageWidth - margin,
-            pageHeight - 10,
-            { align: 'right' }
-        );
+
+    const drawHeader = (data: any) => {
+      const pageNumber = doc.internal.pages.length - 1 > 1 ? `Página ${data.pageNumber}` : '';
+      
+      // Coluna da Esquerda
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text(empresaConfig?.nome || 'Nome da Empresa', pageMargin.left, pageMargin.top + 5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.text(empresaConfig?.endereco || 'Endereço da Empresa', pageMargin.left, pageMargin.top + 11);
+      const contactInfo = [
+        `Telefone: ${empresaConfig?.telefone || ''}`,
+        `Email: ${empresaConfig?.email || ''}`
+      ].filter(Boolean).join(' | ');
+      doc.text(contactInfo, pageMargin.left, pageMargin.top + 16);
+
+      // Coluna da Direita
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 5, { align: 'right' });
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      const reportDetails = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}   ${pageNumber}`;
+      doc.text(reportDetails, doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 11, { align: 'right' });
+      
+      // Linha Separadora
+      doc.setDrawColor(180, 180, 180); // Cor cinza para a linha
+      doc.line(pageMargin.left, pageMargin.top + 22, doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 22);
     };
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
@@ -447,12 +431,16 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: 65, // Start table below the header line
+      startY: pageMargin.top + 25,
       didDrawPage: (data) => {
         drawHeader(data);
-        drawFooter(data);
       },
-      margin: { top: 65, right: margin, bottom: 20, left: margin },
+      margin: {
+        top: pageMargin.top + 25,
+        right: pageMargin.right,
+        bottom: pageMargin.bottom,
+        left: pageMargin.left
+      },
       headStyles: {
         fillColor: [24, 119, 242] // #1877F2 (Primary color)
       }
@@ -462,7 +450,6 @@ export default function ConsultasPage() {
     setIsReportModalOpen(false);
   };
   
-
   const handleExportCSV = () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({
