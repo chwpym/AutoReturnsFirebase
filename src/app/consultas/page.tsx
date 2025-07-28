@@ -380,10 +380,16 @@ export default function ConsultasPage() {
     const drawHeader = (data: any) => {
         const doc = data.doc as jsPDF;
         
+        const logoWidth = 30;
+        const logoHeight = 15;
+        const logoX = pageMargin.left;
+        const logoY = 15;
+        const textStartX = logoX + logoWidth + 5;
+
         // Coluna Esquerda
         if(empresaConfig?.logoDataUrl) {
             try {
-                doc.addImage(empresaConfig.logoDataUrl, 'PNG', pageMargin.left, 15, 40, 15);
+                doc.addImage(empresaConfig.logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
             } catch (e) {
                 console.error("Error adding logo to PDF", e);
             }
@@ -391,32 +397,31 @@ export default function ConsultasPage() {
 
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(empresaConfig?.nome || 'Nome da Empresa', pageMargin.left, 15 + 18);
+        doc.text(empresaConfig?.nome || 'Nome da Empresa', textStartX, logoY + 5);
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(empresaConfig?.endereco || 'Endereço', pageMargin.left, 15 + 24);
+        doc.text(empresaConfig?.endereco || 'Endereço', textStartX, logoY + 11);
         const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
-        doc.text(contactInfo, pageMargin.left, 15 + 29);
+        doc.text(contactInfo, textStartX, logoY + 16);
 
         // Coluna Direita
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 5, { align: 'right' });
+        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, 20, { align: 'right' });
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 11, { align: 'right' });
         const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
         const splitFilters = doc.splitTextToSize(filtersText, 80); // wrap text
-        doc.text(splitFilters, doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 16, { align: 'right' });
+        doc.text(splitFilters, doc.internal.pageSize.getWidth() - pageMargin.right, 26, { align: 'right' });
     };
 
     const drawFooter = (data: any) => {
         const doc = data.doc as jsPDF;
         const pageCount = doc.internal.pages.length -1;
         doc.setFontSize(9);
-        doc.text(`Página ${data.pageNumber} de ${totalPages}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+        doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
     }
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
@@ -460,14 +465,6 @@ export default function ConsultasPage() {
         fillColor: [24, 119, 242] // #1877F2 (Primary color)
       }
     });
-
-    // We get the total pages only after the table is rendered.
-    totalPages = doc.internal.pages.length - 1;
-    // Redraw all footers with the correct total page count.
-    for(let i=1; i <= totalPages; i++) {
-        doc.setPage(i);
-        drawFooter({ pageNumber: i, doc: doc });
-    }
 
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
