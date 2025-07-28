@@ -18,12 +18,36 @@ import {
   DatabaseBackup,
   ChevronDown
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ThemeToggle } from './theme-toggle';
 import { cn } from '@/lib/utils';
 import { QueryProvider } from './query-provider';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-const mainMenuItems = [
+interface NavItem {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface NavGroup {
+  isGroup: true;
+  label: string;
+  id: string;
+  items: NavItem[];
+}
+
+interface SingleNavItem {
+  isGroup?: false;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+type MenuItem = NavGroup | SingleNavItem;
+
+
+const mainMenuItems: MenuItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { 
     isGroup: true, 
@@ -45,7 +69,7 @@ const mainMenuItems = [
   { href: "/consultas", label: "Consultas e Relatórios", icon: Search },
 ];
 
-const footerMenuItems = [
+const footerMenuItems: SingleNavItem[] = [
     { href: "/backup", label: "Backup", icon: DatabaseBackup },
 ]
 
@@ -92,7 +116,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </Collapsible>
                   ) : (
                     <Link href={item.href || '#'} key={`${item.href}-${item.label}`} className={cn("nav-item", pathname === item.href && "active")}>
-                        <item.icon className="nav-item-icon" />
+                        {item.icon && <item.icon className="nav-item-icon" />}
                         <span className="nav-item-text">{item.label}</span>
                     </Link>
                   )}
@@ -103,7 +127,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <div className="sidebar-footer">
                  {footerMenuItems.map((item) => (
                      <Link href={item.href} key={item.href} className={cn("nav-item", pathname === item.href && "active")}>
-                        <item.icon className="nav-item-icon" />
+                        {item.icon && <item.icon className="nav-item-icon" />}
                         <span className="nav-item-text">{item.label}</span>
                     </Link>
                 ))}

@@ -18,9 +18,7 @@ const app = initializeApp(firebaseConfig);
 // Initialize Cloud Firestore and enable persistence
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
-    // Force GC to be off.
-    // TODO(CON-1703): Remove this when the issue is resolved.
-    forceOwnership: true,
+    //forceOwnership: true, // This was for a specific bug and is no longer needed
   }),
 });
 
