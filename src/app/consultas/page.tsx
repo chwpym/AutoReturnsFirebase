@@ -352,6 +352,19 @@ export default function ConsultasPage() {
     }
   }
 
+  const appliedFiltersList = () => {
+    const list = [];
+    if (filters.tipoMovimentacao !== 'Todas') list.push(`Tipo: ${filters.tipoMovimentacao}`);
+    if (filters.statusGarantia !== 'Todos' && filters.tipoMovimentacao !== 'Devolução') list.push(`Status: ${filters.statusGarantia}`);
+    if (filters.dataInicio) list.push(`De: ${format(filters.dataInicio, 'dd/MM/yy')}`);
+    if (filters.dataFim) list.push(`Até: ${format(filters.dataFim, 'dd/MM/yy')}`);
+    if (filters.pecaCodigo) list.push(`Cód. Peça: ${filters.pecaCodigo}`);
+    if (filters.requisicaoVenda) list.push(`Requisição: ${filters.requisicaoVenda}`);
+    if (filters.numeroNF) list.push(`NF: ${filters.numeroNF}`);
+    if (list.length === 0) return 'Nenhum';
+    return list.join('  •  ');
+  }
+
   const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
@@ -361,44 +374,50 @@ export default function ConsultasPage() {
     const empresaConfig = await fetchEmpresaConfig();
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     
-    const pageMargin = {
-      top: 10,
-      right: 15,
-      bottom: 15,
-      left: 15
-    };
+    const pageMargin = { top: 40, right: 15, bottom: 20, left: 15 };
+    let totalPages = 1;
 
     const drawHeader = (data: any) => {
-      const pageNumber = doc.internal.pages.length - 1 > 1 ? `Página ${data.pageNumber}` : '';
-      
-      // Coluna da Esquerda
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text(empresaConfig?.nome || 'Nome da Empresa', pageMargin.left, pageMargin.top + 5);
+        const doc = data.doc as jsPDF;
+        
+        // Coluna Esquerda
+        if(empresaConfig?.logoDataUrl) {
+            try {
+                doc.addImage(empresaConfig.logoDataUrl, 'PNG', pageMargin.left, 15, 40, 15);
+            } catch (e) {
+                console.error("Error adding logo to PDF", e);
+            }
+        }
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.text(empresaConfig?.endereco || 'Endereço da Empresa', pageMargin.left, pageMargin.top + 11);
-      const contactInfo = [
-        `Telefone: ${empresaConfig?.telefone || ''}`,
-        `Email: ${empresaConfig?.email || ''}`
-      ].filter(Boolean).join(' | ');
-      doc.text(contactInfo, pageMargin.left, pageMargin.top + 16);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(empresaConfig?.nome || 'Nome da Empresa', pageMargin.left, 15 + 18);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(empresaConfig?.endereco || 'Endereço', pageMargin.left, 15 + 24);
+        const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
+        doc.text(contactInfo, pageMargin.left, 15 + 29);
 
-      // Coluna da Direita
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 5, { align: 'right' });
-      
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      const reportDetails = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}   ${pageNumber}`;
-      doc.text(reportDetails, doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 11, { align: 'right' });
-      
-      // Linha Separadora
-      doc.setDrawColor(180, 180, 180); // Cor cinza para a linha
-      doc.line(pageMargin.left, pageMargin.top + 22, doc.internal.pageSize.getWidth() - pageMargin.right, pageMargin.top + 22);
+        // Coluna Direita
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 5, { align: 'right' });
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`, doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 11, { align: 'right' });
+        const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
+        const splitFilters = doc.splitTextToSize(filtersText, 80); // wrap text
+        doc.text(splitFilters, doc.internal.pageSize.getWidth() - pageMargin.right, 15 + 16, { align: 'right' });
     };
+
+    const drawFooter = (data: any) => {
+        const doc = data.doc as jsPDF;
+        const pageCount = doc.internal.pages.length -1;
+        doc.setFontSize(9);
+        doc.text(`Página ${data.pageNumber} de ${totalPages}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+    }
   
     const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
     const head = [selectedColumns.map(c => c.label)];
@@ -431,20 +450,24 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: pageMargin.top + 25,
+      startY: 45,
       didDrawPage: (data) => {
         drawHeader(data);
+        drawFooter(data);
       },
-      margin: {
-        top: pageMargin.top + 25,
-        right: pageMargin.right,
-        bottom: pageMargin.bottom,
-        left: pageMargin.left
-      },
+      margin: pageMargin,
       headStyles: {
         fillColor: [24, 119, 242] // #1877F2 (Primary color)
       }
     });
+
+    // We get the total pages only after the table is rendered.
+    totalPages = doc.internal.pages.length - 1;
+    // Redraw all footers with the correct total page count.
+    for(let i=1; i <= totalPages; i++) {
+        doc.setPage(i);
+        drawFooter({ pageNumber: i, doc: doc });
+    }
 
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
@@ -483,18 +506,6 @@ export default function ConsultasPage() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const appliedFiltersList = () => {
-    const list = [];
-    if (filters.tipoMovimentacao !== 'Todas') list.push(`Tipo: ${filters.tipoMovimentacao}`);
-    if (filters.statusGarantia !== 'Todos' && filters.tipoMovimentacao !== 'Devolução') list.push(`Status: ${filters.statusGarantia}`);
-    if (filters.dataInicio) list.push(`De: ${format(filters.dataInicio, 'dd/MM/yy')}`);
-    if (filters.dataFim) list.push(`Até: ${format(filters.dataFim, 'dd/MM/yy')}`);
-    if (filters.pecaCodigo) list.push(`Cód. Peça: ${filters.pecaCodigo}`);
-    if (filters.requisicaoVenda) list.push(`Requisição: ${filters.requisicaoVenda}`);
-    if (filters.numeroNF) list.push(`NF: ${filters.numeroNF}`);
-    return list.join('  •  ');
-  }
 
   const isLoadingData = isLoading || isFetching;
 
