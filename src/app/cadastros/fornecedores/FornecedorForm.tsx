@@ -37,7 +37,7 @@ type FornecedorFormValues = z.infer<typeof fornecedorSchema>;
 
 interface FornecedorFormProps {
     isModal?: boolean;
-    initialValues?: Partial<Fornecedor> | null;
+    initialValues?: Fornecedor | null;
     onSaveSuccess?: (newItem: ComboboxOption) => void;
     onCancel?: () => void;
 }
