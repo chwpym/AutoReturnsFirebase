@@ -363,42 +363,43 @@ export default function ConsultasPage() {
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
-    let finalY = 30; // Initial Y position after header
+    let finalY = 40; // Initial Y position for the table
 
     const drawHeader = () => {
-        if (empresaConfig?.logoDataUrl) {
-            try {
-                const img = new Image();
-                img.src = empresaConfig.logoDataUrl;
-                // Check image type for jspdf
-                const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
-                if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
-                    doc.addImage(img, imgType, margin, 12, 30, 15);
-                }
-            } catch (e) { console.error("Error adding image to PDF", e); }
-        }
-        
-        doc.setFontSize(16);
-        doc.setFont('helvetica', 'bold');
-        doc.text(empresaConfig?.nome || 'Relatório de Movimentações', pageWidth / 2, 15, { align: 'center' });
-
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        const contactInfo = [empresaConfig?.endereco, `Tel: ${empresaConfig?.telefone}`, `Email: ${empresaConfig?.email}`, empresaConfig?.website].filter(Boolean);
-        doc.text(contactInfo.join(' | '), pageWidth / 2, 21, { align: 'center', maxWidth: pageWidth - (margin*2) });
+      // Draw Logo
+      if (empresaConfig?.logoDataUrl) {
+          try {
+              const img = new Image();
+              img.src = empresaConfig.logoDataUrl;
+              const imgType = empresaConfig.logoDataUrl.split(';')[0].split('/')[1].toUpperCase();
+              if (['JPEG', 'PNG', 'JPG'].includes(imgType)) {
+                  doc.addImage(img, imgType, margin, 12, 30, 15);
+              }
+          } catch (e) { console.error("Error adding image to PDF", e); }
+      }
       
-        const filtersSummary = appliedFiltersList();
-        if (filtersSummary) {
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'italic');
-            doc.text(`Filtros: ${filtersSummary}`, pageWidth - margin, 28, { align: 'right', maxWidth: pageWidth / 2 });
-        }
+      // Draw Company Name
+      doc.setFontSize(20);
+      doc.setFont('helvetica', 'bold');
+      doc.text(empresaConfig?.nome || 'Relatório de Movimentações', pageWidth / 2, 20, { align: 'center' });
 
-        doc.setDrawColor(180, 180, 180);
-        doc.line(margin, finalY, pageWidth - margin, finalY);
+      // Draw Contact Info
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const contactInfo = [
+          empresaConfig?.endereco || '',
+          `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`,
+          empresaConfig?.website || ''
+      ].filter(Boolean).join('\n');
+      doc.text(contactInfo, pageWidth / 2, 28, { align: 'center' });
+
+      // Draw line separator
+      doc.setDrawColor(180, 180, 180);
+      doc.line(margin, finalY - 5, pageWidth - margin, finalY - 5);
     };
 
     const drawFooter = (data: any) => {
+        const pageCount = data.pageCount;
         const pageHeight = doc.internal.pageSize.getHeight();
         doc.setDrawColor(180, 180, 180);
         doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
@@ -410,7 +411,7 @@ export default function ConsultasPage() {
           pageHeight - 10
         );
         doc.text(
-          `Página ${data.pageNumber} de ${data.pageCount}`,
+          `Página ${data.pageNumber} de ${pageCount}`,
           pageWidth - margin,
           pageHeight - 10,
           { align: 'right' }
@@ -448,12 +449,15 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: finalY + 5,
+      startY: finalY,
       didDrawPage: (data) => {
         drawHeader();
         drawFooter(data);
       },
-      margin: { top: 35, right: margin, bottom: 20, left: margin }
+      margin: { top: finalY, right: margin, bottom: 20, left: margin },
+      headStyles: {
+        fillColor: [24, 119, 242] // #1877F2 (Primary color)
+      }
     });
   
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
