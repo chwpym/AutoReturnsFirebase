@@ -346,6 +346,7 @@ export default function ConsultasPage() {
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     const margin = 14;
     const pageWidth = doc.internal.pageSize.getWidth();
+    let totalPages = 1; // Placeholder, will be updated.
 
     const drawHeader = (data: any) => {
         // Company Name
@@ -379,7 +380,6 @@ export default function ConsultasPage() {
 
     const drawFooter = (data: any) => {
         const pageHeight = doc.internal.pageSize.getHeight();
-        const pageCount = doc.internal.getNumberOfPages();
         doc.setDrawColor(180, 180, 180);
         doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
   
@@ -390,7 +390,7 @@ export default function ConsultasPage() {
           pageHeight - 10
         );
         doc.text(
-          `Página ${data.pageNumber} de ${pageCount}`,
+          `Página ${data.pageNumber} de ${totalPages}`,
           pageWidth - margin,
           pageHeight - 10,
           { align: 'right' }
@@ -436,6 +436,13 @@ export default function ConsultasPage() {
       },
       margin: { top: 35, right: margin, bottom: 20, left: margin }
     });
+    
+    // @ts-ignore
+    totalPages = doc.internal.pages.length -1;
+    for(let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        drawFooter({ pageNumber: i });
+    }
   
     doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
     setIsReportModalOpen(false);
