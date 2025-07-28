@@ -36,7 +36,7 @@ type PecaFormValues = z.infer<typeof pecaSchema>;
 
 interface PecaFormProps {
     isModal?: boolean;
-    initialValues?: Partial<PecaFormValues> | null;
+    initialValues?: Partial<Peca> | null;
     onSaveSuccess?: (newItem: ComboboxOption) => void;
     onCancel?: () => void;
 }
@@ -48,7 +48,7 @@ export function PecaForm({
     onCancel,
 }: PecaFormProps) {
   const { toast } = useToast();
-  const editingPeca = initialValues && 'id' in initialValues ? initialValues as Peca : null;
+  const editingPeca = initialValues && 'id' in initialValues;
 
   const form = useForm<PecaFormValues>({
     resolver: zodResolver(pecaSchema),
@@ -74,14 +74,14 @@ export function PecaForm({
 
   const handleFormSubmit = async (data: PecaFormValues) => {
     try {
-      if (editingPeca) {
-        const pecaDocRef = doc(db, 'pecas', editingPeca.id!);
+      if (initialValues?.id) {
+        const pecaDocRef = doc(db, 'pecas', initialValues.id);
         await updateDoc(pecaDocRef, data);
         toast({
           title: 'Sucesso!',
           description: 'Peça atualizada com sucesso.',
         });
-        if (onSaveSuccess) onSaveSuccess({ value: editingPeca.id!, label: data.descricao });
+        if (onSaveSuccess) onSaveSuccess({ value: initialValues.id, label: data.descricao });
       } else {
         const docRef = await addDoc(collection(db, 'pecas'), data);
         toast({
