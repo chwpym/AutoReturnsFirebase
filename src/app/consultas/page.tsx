@@ -365,7 +365,7 @@ export default function ConsultasPage() {
     return list.join('  •  ');
   }
 
-  const handleGeneratePdf = async () => {
+  /*const handleGeneratePdf = async () => {
     if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
       toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
       return;
@@ -374,7 +374,7 @@ export default function ConsultasPage() {
     const empresaConfig = await fetchEmpresaConfig();
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
     
-    const pageMargin = { top: 40, right: 15, bottom: 20, left: 15 };
+    const pageMargin = { top: 15, right: 15, bottom: 20, left: 15 };
     let totalPages = 1;
 
     const drawHeader = (data: any) => {
@@ -456,6 +456,115 @@ export default function ConsultasPage() {
       head: head,
       body: body,
       startY: 45,
+      didDrawPage: (data) => {
+        drawHeader(data);
+        drawFooter(data);
+      },
+      margin: pageMargin,
+      headStyles: {
+        fillColor: [24, 119, 242] // #1877F2 (Primary color)
+      }
+    });
+
+    doc.save(`relatorio_movimentacoes_${new Date().toISOString().split('T')[0]}.pdf`);
+    setIsReportModalOpen(false);
+  };*/
+  
+  const handleGeneratePdf = async () => {
+    if (!sortedMovimentacoes || sortedMovimentacoes.length === 0) {
+      toast({ title: 'Nenhum dado para gerar relatório', variant: 'destructive' });
+      return;
+    }
+
+    const empresaConfig = await fetchEmpresaConfig();
+    const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
+    
+    // --- AJUSTE 1: DEFINIR MARGENS E PONTO DE INÍCIO DA TABELA ---
+    const pageMargin = { top: 15, right: 15, bottom: 20, left: 15 };
+    const tableStartY = 40; // <<<< VALOR AJUSTADO PARA DIMINUIR O ESPAÇO
+
+    const drawHeader = (data: any) => {
+        const doc = data.doc as jsPDF;
+        
+        const logoWidth = 30;
+        const logoHeight = 15;
+        const logoX = pageMargin.left;
+        const logoY = pageMargin.top;
+        const textStartX = logoX + logoWidth + 5;
+
+        // Coluna Esquerda
+        if(empresaConfig?.logoDataUrl) {
+            try {
+                doc.addImage(empresaConfig.logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+            } catch (e) {
+                console.error("Error adding logo to PDF", e);
+            }
+        }
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(empresaConfig?.nome || 'Nome da Empresa', textStartX, logoY + 5);
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        doc.text(empresaConfig?.endereco || 'Endereço', textStartX, logoY + 11);
+        const contactInfo = `Tel: ${empresaConfig?.telefone || ''} | Email: ${empresaConfig?.email || ''}`;
+        doc.text(contactInfo, textStartX, logoY + 16);
+
+        // Coluna Direita
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Relatório de Movimentações', doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 5, { align: 'right' });
+        
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        
+        // --- AJUSTE 2: ADICIONAR "GERADO EM" E AJUSTAR POSIÇÃO DOS FILTROS ---
+        const dataGeracao = `Gerado em: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`;
+        doc.text(dataGeracao, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 11, { align: 'right' });
+
+        const filtersText = `Filtros Aplicados: ${appliedFiltersList()}`;
+        doc.text(filtersText, doc.internal.pageSize.getWidth() - pageMargin.right, logoY + 16, { align: 'right' });
+    };
+
+    const drawFooter = (data: any) => {
+        const doc = data.doc as jsPDF;
+        doc.setFontSize(9);
+        doc.text(`Página ${data.pageNumber}`, doc.internal.pageSize.getWidth() - pageMargin.right, doc.internal.pageSize.getHeight() - 10, { align: 'right' });
+    }
+  
+    const selectedColumns = reportColumns.filter(c => reportOptions.columns.includes(c.id));
+    const head = [selectedColumns.map(c => c.label)];
+    const body = sortedMovimentacoes.map(mov => {
+      return selectedColumns.map(col => {
+        let value: any = '-';
+  
+        if (col.id === 'fornecedorNome') {
+            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).fornecedorNome : 'N/A';
+        } else if (col.id === 'acaoRetorno') {
+            value = mov.tipoMovimentacao === 'Garantia' ? (mov as MovimentacaoGarantia).acaoRetorno : 'N/A';
+        } else if ((col.id as keyof Movimentacao) in mov) {
+            const movKey = col.id as keyof Movimentacao;
+            if (Object.prototype.hasOwnProperty.call(mov, movKey)) {
+                value = mov[movKey];
+            }
+        }
+  
+        if (value instanceof Timestamp) {
+          value = format(value.toDate(), 'dd/MM/yy HH:mm');
+        } else if (value !== null && value !== undefined) {
+          value = String(value);
+        } else {
+          value = '-';
+        }
+        return value;
+      });
+    });
+  
+    doc.autoTable({
+      head: head,
+      body: body,
+      startY: tableStartY, // <<<< USANDO A NOVA VARIÁVEL
       didDrawPage: (data) => {
         drawHeader(data);
         drawFooter(data);
