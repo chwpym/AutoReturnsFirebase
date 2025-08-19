@@ -219,6 +219,7 @@ export default function ConsultasPage() {
     data: movimentacoes,
     isLoading,
     isError,
+    error,
     isFetching,
     refetch,
   } = useQuery({
@@ -226,6 +227,7 @@ export default function ConsultasPage() {
     queryFn: () => fetchMovimentacoes(filters),
     enabled: false,
     refetchOnWindowFocus: false,
+    retry: false, // Don't retry queries that fail, especially due to missing indexes
   });
 
   const sortedMovimentacoes = React.useMemo(() => {
@@ -273,15 +275,42 @@ export default function ConsultasPage() {
 
 
   React.useEffect(() => {
-    if (isError) {
-      toast({
-        title: 'Erro ao buscar dados',
-        description:
-          'Não foi possível realizar a consulta. Verifique os filtros e tente novamente.',
-        variant: 'destructive',
-      });
+    if (isError && error) {
+      const errorMessage = (error as Error).message || '';
+
+      if (errorMessage.includes('requires an index')) {
+        const urlMatch = errorMessage.match(/https?:\/\/[^\s]+/);
+        const indexUrl = urlMatch ? urlMatch[0] : '';
+
+        toast({
+          title: 'Índice de banco de dados necessário',
+          description: (
+            <div className="flex flex-col gap-2">
+              <span>A sua combinação de filtros requer um índice não existente.</span>
+              {indexUrl && (
+                <a
+                  href={indexUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm underline text-blue-500 hover:text-blue-600"
+                >
+                  Clique aqui para criar o índice no Firebase.
+                </a>
+              )}
+            </div>
+          ),
+          variant: 'destructive',
+          duration: 15000,
+        });
+      } else {
+        toast({
+          title: 'Erro ao buscar dados',
+          description: 'Não foi possível realizar a consulta. Verifique os filtros e tente novamente.',
+          variant: 'destructive',
+        });
+      }
     }
-  }, [isError, toast]);
+  }, [isError, error, toast]);
 
   const handleFilterChange = <K extends keyof Filters>(
     key: K,
@@ -374,9 +403,9 @@ export default function ConsultasPage() {
     const empresaConfig = await fetchEmpresaConfig();
     const doc = new jsPDF({ orientation: reportOptions.orientation }) as jsPDFWithAutoTable;
 
-    // --- AJUSTE 1: DEFINIR MARGENS E PONTO DE INÍCIO DA TABELA ---
-    const pageMargin = { top: 15, right: 15, bottom: 20, left: 15 };
-    const tableStartY = 40; // <<<< VALOR AJUSTADO PARA DIMINUIR O ESPAÇO
+    // A margem superior (top) define o espaço para o cabeçalho.
+    // A função drawHeader desenhará o conteúdo dentro desse espaço.
+    const pageMargin = { top: 50, right: 15, bottom: 20, left: 15 };
 
     const drawHeader = (data: any) => {
       const doc = data.doc as jsPDF;
@@ -459,7 +488,6 @@ export default function ConsultasPage() {
     doc.autoTable({
       head: head,
       body: body,
-      startY: tableStartY, // <<<< USANDO A NOVA VARIÁVEL
       didDrawPage: (data) => {
         drawHeader(data);
         drawFooter(data);

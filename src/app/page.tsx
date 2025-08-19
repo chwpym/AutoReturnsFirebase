@@ -79,24 +79,20 @@ const fetchDevolucoesMes = async () => {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59);
 
-    // Query for all returns and filter by date on the client side to avoid composite index requirement.
+    /*
+     * Firestore requires a composite index for this query. If the index doesn't exist,
+     * Firestore will return an error with a link to create it in the console.
+     * The required index is on: `movimentacoes` collection, `tipoMovimentacao` (asc), `dataMovimentacao` (asc).
+    */
     const q = query(
         collection(db, 'movimentacoes'),
         where('tipoMovimentacao', '==', 'Devolução'),
+        where('dataMovimentacao', '>=', Timestamp.fromDate(startOfMonth)),
+        where('dataMovimentacao', '<=', Timestamp.fromDate(endOfMonth))
     );
 
-    const querySnapshot = await getDocs(q);
-    
-    let count = 0;
-    querySnapshot.forEach(doc => {
-        const data = doc.data();
-        const dataMovimentacao = data.dataMovimentacao.toDate();
-        if (dataMovimentacao >= startOfMonth && dataMovimentacao <= endOfMonth) {
-            count++;
-        }
-    });
-    
-    return count;
+    const snapshot = await getCountFromServer(q);
+    return snapshot.data().count;
 };
 
 const fetchGarantiasPendentes = async () => {
